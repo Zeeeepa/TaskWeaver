@@ -7,6 +7,13 @@ from standalone_taskweaver.module.tracing import Tracing
 
 
 def main():
+    """
+    IMPORTANT: Before running this example, install the required dependencies:
+    
+    pip install -r requirements.txt
+    
+    If you encounter any issues, make sure all dependencies are properly installed.
+    """
     # Create the app config
     config = AppConfigSource(
         app_base_path=os.path.dirname(os.path.abspath(__file__)),
@@ -47,4 +54,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

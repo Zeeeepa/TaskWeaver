@@ -7,8 +7,7 @@ from typing import Any, Dict, List, Optional
 
 from standalone_taskweaver.logging import TelemetryLogger
 from standalone_taskweaver.module.tracing import Tracing, tracing_decorator
-from standalone_taskweaver.session.session import SessionMetadata
-
+from standalone_taskweaver.common.metadata import SessionMetadata
 
 @dataclass
 class Artifact:
@@ -186,4 +185,3 @@ class CodeExecutor:
             output += "\n\n"
 
         return output
-

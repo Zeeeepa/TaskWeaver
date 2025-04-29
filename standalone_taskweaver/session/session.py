@@ -1,28 +1,16 @@
 import os
 import uuid
-from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 from injector import inject
 
 from standalone_taskweaver.code_interpreter import CodeInterpreter
+from standalone_taskweaver.common.metadata import SessionMetadata
 from standalone_taskweaver.logging import TelemetryLogger
 from standalone_taskweaver.memory import Memory, Post, Round
 from standalone_taskweaver.module.event_emitter import SessionEventEmitter
 from standalone_taskweaver.module.tracing import Tracing, tracing_decorator
 from standalone_taskweaver.planner import Planner
-
-
-@dataclass
-class SessionMetadata:
-    """
-    SessionMetadata is used to store the metadata of a session.
-    """
-
-    session_id: str
-    session_name: str
-    session_dir: str
-    execution_cwd: str
 
 
 class Session:

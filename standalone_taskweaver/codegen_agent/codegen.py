@@ -105,18 +105,30 @@ class GitHubManager:
     def __init__(self, config: Configuration):
         self.config = config
         self.github_client = Github(config.github_token)
-        self.repo = self.github_client.get_repo(config.repo_name)
-        logger.info(f"Connected to GitHub repository: {config.repo_name}")
-        
+        try:
+            self.repo = self.github_client.get_repo(config.repo_name)
+            logger.info(f"Connected to GitHub repository: {config.repo_name}")
+        except Exception as e:
+            logger.error(f"Error connecting to GitHub repository: {str(e)}")
+            self.repo = None
+            
+    def is_connected(self) -> bool:
+        """Check if the GitHub client is properly connected to the repository."""
+        return self.repo is not None
+            
     def get_requirements(self) -> str:
         """Fetch the content of REQUIREMENTS.md from the repository."""
         try:
+            if not self.is_connected():
+                logger.error("GitHub client not connected to repository")
+                return ""
+                
             content_file = self.repo.get_contents(self.config.requirements_path)
             return content_file.decoded_content.decode('utf-8')
         except Exception as e:
             logger.error(f"Error fetching requirements: {str(e)}")
             return ""
-            
+
     def create_branch(self, branch_name: str, base_branch: str = "main") -> bool:
         """Create a new branch in the repository."""
         try:
@@ -939,6 +951,11 @@ class WorkflowManager:
             logger.error(f"Failed to get PR #{pr_number}")
             return False
         
+        # Check if GitHub client is properly connected
+        if not self.github_manager.is_connected():
+            logger.error("GitHub client not properly connected to repository")
+            return False
+            
         # Get PR files
         pr_files = []
         try:
@@ -1111,6 +1128,11 @@ class WorkflowManager:
     def handle_deployment_failure(self, pr: PullRequest.PullRequest, pr_content: Dict, logs: str):
         """Handle a deployment failure by creating an error report and PR comment."""
         try:
+            # Check if GitHub client is properly connected
+            if not self.github_manager.is_connected():
+                logger.error("GitHub client not properly connected to repository")
+                return False
+                
             error_comment = f"""
 ## Deployment Failed
 
@@ -1123,7 +1145,7 @@ The deployment of PR #{pr.number} failed. Please check the logs:
 Please address these issues before merging.
 """
             pr.create_issue_comment(error_comment)
-            logger.info(f"Added deployment failure comment to PR #{pr.number}")
+            logger.info(f"Added deployment failure comment to PR #{pr_number}")
         except Exception as e:
             logger.error(f"Error adding deployment failure comment: {str(e)}")
         
@@ -1133,6 +1155,11 @@ Please address these issues before merging.
         """Handle deployment issues by creating a fix branch and PR."""
         # Create a comment detailing the issues
         try:
+            # Check if GitHub client is properly connected
+            if not self.github_manager.is_connected():
+                logger.error("GitHub client not properly connected to repository")
+                return False
+                
             issues_md = "\n".join([f"- **{issue.get('severity', 'medium')}**: {issue.get('description')}" for issue in issues])
             issues_comment = f"""
 ## Deployment Issues
@@ -1144,7 +1171,7 @@ The deployment completed, but the following issues were found:
 A fix branch will be created to address these issues.
 """
             pr.create_issue_comment(issues_comment)
-            logger.info(f"Added deployment issues comment to PR #{pr.number}")
+            logger.info(f"Added deployment issues comment to PR #{pr_number}")
         except Exception as e:
             logger.error(f"Error adding deployment issues comment: {str(e)}")
             return False
@@ -1195,7 +1222,6 @@ Issues fixed:
         
         logger.info(f"Created fix PR #{fix_pr.number}")
         return True
-
 
 def parse_args():
     """Parse command line arguments."""

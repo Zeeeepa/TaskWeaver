@@ -1,83 +1,82 @@
 # TaskWeaver GUI
 
-A graphical user interface for Microsoft's TaskWeaver framework that provides:
+TaskWeaver GUI provides a graphical user interface for interacting with the TaskWeaver framework. This document explains how to use the GUI interface.
 
-1. Chat Interface - Interact with TaskWeaver through a user-friendly chat interface
-2. Plan View - Visualize the planning steps and execution flow
-3. Local Folder Project Selection - Select and manage different project folders
+## Features
 
-## Installation
+- **Project Selection**: Select a local folder to analyze with TaskWeaver
+- **API Configuration**: Configure API endpoints, keys, and models
+- **Session Management**: Create and manage multiple TaskWeaver sessions
+- **Interactive Chat**: Communicate with TaskWeaver through a chat interface
+- **Plan Visualization**: View TaskWeaver's planning steps
 
-Before using the TaskWeaver GUI, make sure to install all required dependencies:
+## Getting Started
+
+### Installation
+
+1. Install the required dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. Launch the GUI:
+   ```bash
+   python taskweaver_gui.py
+   ```
+
+   Or use the launcher:
+   ```bash
+   python taskweaver_launcher.py
+   ```
+
+### Configuration
+
+Before using TaskWeaver, you need to configure the API settings:
+
+1. Click the **Settings** button in the top toolbar
+2. Enter your API endpoint (e.g., `https://api.openai.com/v1`)
+3. Enter your API key
+4. Select the model to use (e.g., `gpt-4`)
+5. Click **OK** to save the settings
+
+### Using the GUI
+
+1. **Select a Project Directory**:
+   - Click the **Browse** button to select a local folder
+   - This folder will be used as the context for TaskWeaver
+
+2. **Initialize TaskWeaver**:
+   - Click the **Initialize** button to start TaskWeaver with the selected folder
+   - Wait for the initialization to complete
+
+3. **Create a Session**:
+   - Click the **New Session** button to create a new TaskWeaver session
+   - You can create multiple sessions for different tasks
+
+4. **Chat with TaskWeaver**:
+   - Type your message in the input box at the bottom
+   - Click **Send** or press Enter to send the message
+   - View TaskWeaver's response in the chat history
+
+5. **View the Plan**:
+   - Switch to the **Plan View** tab to see TaskWeaver's planning steps
+   - This shows how TaskWeaver breaks down your request into subtasks
+
+## CLI Mode
+
+TaskWeaver also supports a command-line interface mode:
 
 ```bash
-pip install -r requirements.txt
+python taskweaver_launcher.py --cli --project /path/to/your/project
 ```
-
-This will install:
-- injector - Dependency injection framework
-- tiktoken - Tokenizer for language models
-- pyyaml - YAML parser and emitter
-- typing-extensions - Backported typing features
-- dataclasses - Data class decorator
-- uuid - UUID generation
-- PyQt5 - GUI framework
-
-## Usage
-
-### Starting the GUI
-
-Run the GUI application:
-
-```bash
-python taskweaver_gui.py
-```
-
-### Setting Up a Project
-
-1. Click the "Browse" button to select a project folder
-2. Click "Initialize TaskWeaver" to set up TaskWeaver with the selected folder
-3. Once initialized, you can create and manage sessions
-
-### Working with Sessions
-
-- Click "New Session" to create a new TaskWeaver session
-- Select a session from the list to view its history
-- Use the chat interface to interact with TaskWeaver
-- View the plan in the "Plan" tab
-- Browse project files in the "Project Explorer" tab
-
-### Chat Interface
-
-The chat interface allows you to:
-- Send messages to TaskWeaver
-- View the conversation history
-- See TaskWeaver's responses in real-time
-
-### Plan View
-
-The Plan View tab shows:
-- The current plan created by TaskWeaver
-- Steps and tasks identified for your request
-- The execution flow of the plan
-
-### Project Explorer
-
-The Project Explorer allows you to:
-- Browse the files in your project folder
-- Select files to view or reference in your conversations
 
 ## Troubleshooting
 
-If you encounter any issues:
-
-1. Make sure all dependencies are installed correctly
-2. Check that the project folder contains the necessary files
-3. Verify that TaskWeaver is initialized properly
-
-For more detailed information about TaskWeaver, refer to the original documentation.
+- **API Connection Issues**: Verify your API endpoint and key in the Settings dialog
+- **Initialization Errors**: Check that the selected project directory is valid
+- **Session Creation Failures**: Ensure TaskWeaver is properly initialized before creating a session
 
 ## License
 
-This GUI is provided under the same license as the original TaskWeaver project.
+This project is licensed under the MIT License - see the LICENSE file for details.
 

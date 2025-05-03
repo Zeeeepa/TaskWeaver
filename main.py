@@ -55,6 +55,7 @@ def parse_args():
     web_group = parser.add_argument_group("Web UI Options")
     web_group.add_argument("--host", default="0.0.0.0", help="Host to bind the web server to")
     web_group.add_argument("--port", type=int, default=8000, help="Port to bind the web server to")
+    web_group.add_argument("--public", action="store_true", help="Make the web UI publicly accessible via ngrok")
     
     # CLI options
     cli_group = parser.add_argument_group("CLI Options")
@@ -67,6 +68,13 @@ def parse_args():
     common_group.add_argument("--debug", action="store_true", help="Enable debug logging")
     common_group.add_argument("--version", action="store_true", help="Display version information and exit")
     common_group.add_argument("--auto-install", action="store_true", help="Automatically install missing dependencies")
+    
+    # Codegen integration options
+    codegen_group = parser.add_argument_group("Codegen Integration Options")
+    codegen_group.add_argument("--codegen-api-key", type=str, help="Codegen API key")
+    codegen_group.add_argument("--codegen-org-id", type=str, help="Codegen organization ID")
+    codegen_group.add_argument("--github-token", type=str, help="GitHub API token")
+    codegen_group.add_argument("--ngrok-token", type=str, help="ngrok API token")
     
     return parser.parse_args()
 
@@ -87,7 +95,10 @@ def install_package(package: str) -> Tuple[bool, str]:
     except subprocess.CalledProcessError as e:
         return False, f"Failed to install {package}: {str(e)}"
 
-def launch_web_ui(host: str = "0.0.0.0", port: int = 8000, config_path: Optional[str] = None, auto_install: bool = False):
+def launch_web_ui(host: str = "0.0.0.0", port: int = 8000, config_path: Optional[str] = None, 
+                 auto_install: bool = False, public: bool = False, 
+                 codegen_api_key: Optional[str] = None, codegen_org_id: Optional[str] = None,
+                 github_token: Optional[str] = None, ngrok_token: Optional[str] = None):
     """
     Launch the web UI
     
@@ -96,6 +107,11 @@ def launch_web_ui(host: str = "0.0.0.0", port: int = 8000, config_path: Optional
         port: Port to bind the web server to
         config_path: Path to configuration file
         auto_install: Whether to automatically install missing dependencies
+        public: Whether to make the web UI publicly accessible via ngrok
+        codegen_api_key: Codegen API key
+        codegen_org_id: Codegen organization ID
+        github_token: GitHub API token
+        ngrok_token: ngrok API token
     """
     try:
         from standalone_taskweaver.ui.server import run_server
@@ -111,7 +127,25 @@ def launch_web_ui(host: str = "0.0.0.0", port: int = 8000, config_path: Optional
             os.environ["TASKWEAVER_CONFIG_PATH"] = config_path
             logger.info(f"Using configuration from {config_path}")
         
-        run_server(host=host, port=port)
+        # Set Codegen API credentials if provided
+        if codegen_api_key:
+            os.environ["CODEGEN_API_KEY"] = codegen_api_key
+            logger.info("Using provided Codegen API key")
+            
+        if codegen_org_id:
+            os.environ["CODEGEN_ORG_ID"] = codegen_org_id
+            logger.info("Using provided Codegen organization ID")
+            
+        if github_token:
+            os.environ["GITHUB_TOKEN"] = github_token
+            logger.info("Using provided GitHub token")
+            
+        if ngrok_token:
+            os.environ["NGROK_TOKEN"] = ngrok_token
+            logger.info("Using provided ngrok token")
+        
+        # Run the server
+        run_server(host=host, port=port, public=public)
         return 0
     except ImportError as e:
         logger.error(f"Failed to import web UI components: {str(e)}")
@@ -135,13 +169,19 @@ def launch_web_ui(host: str = "0.0.0.0", port: int = 8000, config_path: Optional
         logger.error(f"Error launching web UI: {str(e)}")
         return 1
 
-def launch_gui(config_path: Optional[str] = None, auto_install: bool = False):
+def launch_gui(config_path: Optional[str] = None, auto_install: bool = False,
+              codegen_api_key: Optional[str] = None, codegen_org_id: Optional[str] = None,
+              github_token: Optional[str] = None, ngrok_token: Optional[str] = None):
     """
     Launch the desktop GUI
     
     Args:
         config_path: Path to configuration file
         auto_install: Whether to automatically install missing dependencies
+        codegen_api_key: Codegen API key
+        codegen_org_id: Codegen organization ID
+        github_token: GitHub API token
+        ngrok_token: ngrok API token
     """
     try:
         from PyQt5.QtWidgets import QApplication
@@ -156,6 +196,23 @@ def launch_gui(config_path: Optional[str] = None, auto_install: bool = False):
                 return 1
             os.environ["TASKWEAVER_CONFIG_PATH"] = config_path
             logger.info(f"Using configuration from {config_path}")
+        
+        # Set Codegen API credentials if provided
+        if codegen_api_key:
+            os.environ["CODEGEN_API_KEY"] = codegen_api_key
+            logger.info("Using provided Codegen API key")
+            
+        if codegen_org_id:
+            os.environ["CODEGEN_ORG_ID"] = codegen_org_id
+            logger.info("Using provided Codegen organization ID")
+            
+        if github_token:
+            os.environ["GITHUB_TOKEN"] = github_token
+            logger.info("Using provided GitHub token")
+            
+        if ngrok_token:
+            os.environ["NGROK_TOKEN"] = ngrok_token
+            logger.info("Using provided ngrok token")
         
         app = QApplication(sys.argv)
         gui = TaskWeaverGUI()
@@ -184,7 +241,9 @@ def launch_gui(config_path: Optional[str] = None, auto_install: bool = False):
         return 1
 
 def launch_cli(project_dir: Optional[str] = None, interactive: bool = False, 
-               config_path: Optional[str] = None, auto_install: bool = False):
+               config_path: Optional[str] = None, auto_install: bool = False,
+               codegen_api_key: Optional[str] = None, codegen_org_id: Optional[str] = None,
+               github_token: Optional[str] = None, ngrok_token: Optional[str] = None):
     """
     Launch the CLI interface
     
@@ -193,6 +252,10 @@ def launch_cli(project_dir: Optional[str] = None, interactive: bool = False,
         interactive: Whether to run in interactive mode
         config_path: Path to configuration file
         auto_install: Whether to automatically install missing dependencies
+        codegen_api_key: Codegen API key
+        codegen_org_id: Codegen organization ID
+        github_token: GitHub API token
+        ngrok_token: ngrok API token
     """
     try:
         from taskweaver_launcher import TaskWeaverCLI
@@ -206,6 +269,23 @@ def launch_cli(project_dir: Optional[str] = None, interactive: bool = False,
                 return 1
             os.environ["TASKWEAVER_CONFIG_PATH"] = config_path
             logger.info(f"Using configuration from {config_path}")
+        
+        # Set Codegen API credentials if provided
+        if codegen_api_key:
+            os.environ["CODEGEN_API_KEY"] = codegen_api_key
+            logger.info("Using provided Codegen API key")
+            
+        if codegen_org_id:
+            os.environ["CODEGEN_ORG_ID"] = codegen_org_id
+            logger.info("Using provided Codegen organization ID")
+            
+        if github_token:
+            os.environ["GITHUB_TOKEN"] = github_token
+            logger.info("Using provided GitHub token")
+            
+        if ngrok_token:
+            os.environ["NGROK_TOKEN"] = ngrok_token
+            logger.info("Using provided ngrok token")
         
         cli = TaskWeaverCLI()
         
@@ -327,16 +407,51 @@ def main():
     
     # Launch the appropriate UI
     if args.web:
-        return launch_web_ui(host=args.host, port=args.port, config_path=args.config, auto_install=args.auto_install)
+        return launch_web_ui(
+            host=args.host, 
+            port=args.port, 
+            config_path=args.config, 
+            auto_install=args.auto_install,
+            public=args.public,
+            codegen_api_key=args.codegen_api_key,
+            codegen_org_id=args.codegen_org_id,
+            github_token=args.github_token,
+            ngrok_token=args.ngrok_token
+        )
     elif args.gui:
-        return launch_gui(config_path=args.config, auto_install=args.auto_install)
+        return launch_gui(
+            config_path=args.config, 
+            auto_install=args.auto_install,
+            codegen_api_key=args.codegen_api_key,
+            codegen_org_id=args.codegen_org_id,
+            github_token=args.github_token,
+            ngrok_token=args.ngrok_token
+        )
     elif args.cli:
-        return launch_cli(project_dir=args.project, interactive=args.interactive, 
-                         config_path=args.config, auto_install=args.auto_install)
+        return launch_cli(
+            project_dir=args.project, 
+            interactive=args.interactive, 
+            config_path=args.config, 
+            auto_install=args.auto_install,
+            codegen_api_key=args.codegen_api_key,
+            codegen_org_id=args.codegen_org_id,
+            github_token=args.github_token,
+            ngrok_token=args.ngrok_token
+        )
     else:
         # Default to web UI if no mode specified
         logger.info("No UI mode specified, defaulting to web UI")
-        return launch_web_ui(host=args.host, port=args.port, config_path=args.config, auto_install=args.auto_install)
+        return launch_web_ui(
+            host=args.host, 
+            port=args.port, 
+            config_path=args.config, 
+            auto_install=args.auto_install,
+            public=args.public,
+            codegen_api_key=args.codegen_api_key,
+            codegen_org_id=args.codegen_org_id,
+            github_token=args.github_token,
+            ngrok_token=args.ngrok_token
+        )
 
 if __name__ == "__main__":
     sys.exit(main())

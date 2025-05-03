@@ -1,0 +1,24 @@
+# TaskWeaver Project Configuration
+name: TaskWeaver Project
+version: 0.0.1
+description: A TaskWeaver project template
+
+# Server configuration
+server:
+  host: 127.0.0.1
+  port: 8080
+  debug: false
+
+# Codegen integration configuration
+codegen:
+  enabled: true
+  api_key: ""  # Set your API key here or via environment variable
+  base_url: "https://api.codegen.sh"
+  timeout: 60  # Timeout in seconds
+
+# Logging configuration
+logging:
+  level: INFO
+  file: logs/taskweaver.log
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+

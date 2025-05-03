@@ -335,8 +335,17 @@ class CodegenIntegration:
                 content = contents.decoded_content.decode("utf-8")
                 
                 # Parse the content
+                # Import here to avoid circular imports
                 from standalone_taskweaver.codegen_agent.requirements_manager import RequirementsManager
-                requirements_manager = RequirementsManager(self.app, self.config, self.logger, self)
+                
+                # Use the existing requirements_manager if available
+                if hasattr(self, '_requirements_manager'):
+                    requirements_manager = self._requirements_manager
+                else:
+                    requirements_manager = RequirementsManager(self.app, self.config, self.logger, self)
+                    # Cache the requirements manager for future use
+                    self._requirements_manager = requirements_manager
+                
                 parsed_requirements = requirements_manager.parse_requirements_document(content)
                 
                 return parsed_requirements
@@ -366,8 +375,16 @@ class CodegenIntegration:
                 return []
                 
             # Generate queries
-            from standalone_taskweaver.codegen_agent.requirements_manager import RequirementsManager
-            requirements_manager = RequirementsManager(self.app, self.config, self.logger, self)
+            # Use the existing requirements_manager if available
+            if hasattr(self, '_requirements_manager'):
+                requirements_manager = self._requirements_manager
+            else:
+                # Import here to avoid circular imports
+                from standalone_taskweaver.codegen_agent.requirements_manager import RequirementsManager
+                requirements_manager = RequirementsManager(self.app, self.config, self.logger, self)
+                # Cache the requirements manager for future use
+                self._requirements_manager = requirements_manager
+                
             queries = requirements_manager.generate_concurrent_queries(parsed_requirements, phase)
             
             return queries

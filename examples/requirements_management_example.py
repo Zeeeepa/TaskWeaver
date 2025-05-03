@@ -40,10 +40,10 @@ def main():
     # Initialize the app
     app = TaskWeaverApp()
     config = AppConfigSource()
-    logger = TelemetryLogger()
+    telemetry_logger = TelemetryLogger()
     
     # Initialize the integration
-    integration = CodegenIntegration(app, config, logger)
+    integration = CodegenIntegration(app, config, telemetry_logger)
     success = integration.initialize(
         github_token=github_token,
         codegen_token=codegen_token,
@@ -57,7 +57,7 @@ def main():
         return 1
     
     # Initialize the requirements manager
-    requirements_manager = RequirementsManager(app, config, logger, integration)
+    requirements_manager = RequirementsManager(app, config, telemetry_logger, integration)
     
     # Example requirements
     project_name = "TaskWeaver-Codegen Integration"
@@ -180,4 +180,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-

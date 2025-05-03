@@ -6,6 +6,25 @@
 
 A code-first agent framework for seamlessly planning and executing data analytics tasks with Codegen integration.
 
+## 🚀 Quick Start
+
+```bash
+# Clone and install
+git clone https://github.com/microsoft/TaskWeaver.git
+cd TaskWeaver
+python -m venv venv && source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# Set up Codegen API (required for code generation)
+export CODEGEN_API_ENDPOINT="your_codegen_api_endpoint"
+export CODEGEN_API_KEY="your_codegen_api_key"  # If required
+
+# Launch TaskWeaver
+python main.py
+```
+
+Visit the [Codegen Documentation](https://codegen.sh/docs) to get your API credentials.
+
 ## 🌟 Overview
 
 TaskWeaver is a powerful agent framework designed to break down complex data analytics tasks into manageable steps, plan execution, and maintain state throughout the process. This implementation enhances the original TaskWeaver with Codegen integration, providing a more robust and versatile experience.
@@ -61,6 +80,7 @@ The TaskWeaver-Codegen integration creates a powerful workflow for data analytic
 ### Prerequisites
 - Python 3.8+
 - Git
+- Codegen API access (sign up at [codegen.sh](https://codegen.sh))
 
 ### Installation Steps
 
@@ -78,6 +98,37 @@ pip install -r requirements.txt
 
 # Install additional dependencies for Codegen integration
 pip install requests PyQt5
+```
+
+### Configuration
+
+Create a configuration file `config.json` in the project root:
+
+```json
+{
+  "codegen": {
+    "api_endpoint": "https://api.codegen.sh/v2/generate",
+    "api_key": "your_codegen_api_key",
+    "timeout": 30
+  },
+  "taskweaver": {
+    "model": "gpt-4",
+    "memory_limit": 1000,
+    "log_level": "info"
+  }
+}
+```
+
+Alternatively, set environment variables:
+
+```bash
+# Required for Codegen integration
+export CODEGEN_API_ENDPOINT="https://api.codegen.sh/v2/generate"
+export CODEGEN_API_KEY="your_codegen_api_key"
+
+# Optional TaskWeaver configuration
+export TASKWEAVER_MODEL="gpt-4"
+export TASKWEAVER_LOG_LEVEL="debug"
 ```
 
 ### Version Compatibility
@@ -340,6 +391,7 @@ session.close()
 ```python
 import requests
 import json
+import os
 
 def send_request_to_codegen(task_description, code_context=None, error_details=None):
     """
@@ -353,7 +405,13 @@ def send_request_to_codegen(task_description, code_context=None, error_details=N
     Returns:
         Generated code from Codegen API
     """
-    api_endpoint = "https://api.codegen.example/generate"  # This is a placeholder - refer to Codegen documentation for the actual endpoint
+    # Get API endpoint from environment variable or configuration
+    # Replace this with your actual Codegen API endpoint from your configuration
+    api_endpoint = os.getenv("CODEGEN_API_ENDPOINT", "https://api.codegen.example/generate")
+    
+    # Check if the endpoint is still the default placeholder
+    if "codegen.example" in api_endpoint:
+        print("WARNING: You are using a placeholder API endpoint. Please set the CODEGEN_API_ENDPOINT environment variable.")
     
     payload = {
         "task": task_description,
@@ -367,9 +425,16 @@ def send_request_to_codegen(task_description, code_context=None, error_details=N
         payload["error"] = error_details
         payload["request_type"] = "error_resolution"
     
+    # Add authentication if required by your Codegen API instance
+    headers = {
+        "Content-Type": "application/json",
+        # Uncomment and set your API key if required
+        # "Authorization": f"Bearer {os.getenv('CODEGEN_API_KEY')}"
+    }
+    
     response = requests.post(
         api_endpoint,
-        headers={"Content-Type": "application/json"},
+        headers=headers,
         data=json.dumps(payload)
     )
     

@@ -37,12 +37,12 @@ app = FastAPI(
     version=__version__
 )
 
-# Add CORS middleware
+# Add CORS middleware with more secure settings
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],  # Specify exact allowed origins
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
+    allow_methods=["GET", "POST", "PUT", "DELETE"],  # Specify allowed methods
     allow_headers=["*"],  # Allow all headers
 )
 
@@ -138,11 +138,14 @@ def get_ui():
 # Exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    # Log the full error details for debugging
     logger.error(f"Unhandled exception: {str(exc)}")
     logger.error(traceback.format_exc())
+    
+    # Return a generic error message to the client
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"success": False, "error": "Internal server error", "details": str(exc)}
+        content={"success": False, "error": "Internal server error"}
     )
 
 # API routes

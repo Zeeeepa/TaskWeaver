@@ -5,12 +5,16 @@ import setuptools
 
 # Get version from version.py
 def get_version():
-    with open(os.path.join("standalone_taskweaver", "version.py"), "r") as f:
-        version_file = f.read()
-    version_match = re.search(r"__version__ = ['\"]([^'\"]*)['\"]", version_file)
-    if version_match:
-        return version_match.group(1)
-    raise RuntimeError("Unable to find version string.")
+    try:
+        with open(os.path.join("standalone_taskweaver", "version.py"), "r") as f:
+            version_file = f.read()
+        version_match = re.search(r"__version__ = ['\"]([^'\"]*)['\"]", version_file)
+        if version_match:
+            return version_match.group(1)
+        return "unknown"
+    except Exception as e:
+        print(f"Error reading version: {str(e)}")
+        return "unknown"
 
 version_str = get_version()
 

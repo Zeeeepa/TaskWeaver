@@ -1,225 +1,147 @@
 #!/usr/bin/env python3
 """
-Requirements Manager Module
-
-This module provides functionality for managing requirements in TaskWeaver.
+Requirements manager for TaskWeaver.
 """
 
 import os
-import sys
-import json
-import logging
 import re
-from typing import Dict, List, Optional, Any, Union, Tuple
+from typing import Dict, Any, Optional, List, Set
 
-from injector import inject
-
-from standalone_taskweaver.app.app import TaskWeaverApp
-from standalone_taskweaver.config.config_mgt import AppConfigSource
-from standalone_taskweaver.logging import TelemetryLogger
 
 class RequirementsManager:
     """
-    Manager for requirements in TaskWeaver
+    Requirements manager for TaskWeaver.
     """
-    
-    @inject
-    def __init__(
-        self,
-        app: TaskWeaverApp,
-        config: AppConfigSource,
-        logger: TelemetryLogger,
-    ) -> None:
-        self.app = app
-        self.config = config
-        self.logger = logger
-        self.requirements = []
-        
-    def parse_requirements(self, requirements_text: str) -> List[Dict[str, Any]]:
+
+    def __init__(self, requirements_file: Optional[str] = None):
         """
-        Parse requirements from text
-        
+        Initialize the requirements manager.
+
         Args:
-            requirements_text: Requirements text
-            
-        Returns:
-            List[Dict[str, Any]]: List of parsed requirements
+            requirements_file: Optional path to requirements file.
         """
-        try:
-            # Split the text into lines
-            lines = requirements_text.strip().split("\n")
-            
-            # Parse requirements
-            parsed_requirements = []
-            current_requirement = None
-            
-            for line in lines:
+        self.requirements_file = requirements_file or "requirements.txt"
+        self.requirements = set()
+        self.initialized = False
+
+    def initialize(self) -> None:
+        """
+        Initialize the requirements manager.
+        """
+        if os.path.exists(self.requirements_file):
+            self.load_requirements()
+        
+        self.initialized = True
+
+    def load_requirements(self) -> None:
+        """
+        Load requirements from file.
+        """
+        with open(self.requirements_file, "r") as f:
+            for line in f:
                 line = line.strip()
-                
-                # Skip empty lines
-                if not line:
-                    continue
-                    
-                # Check if the line is a requirement
-                if line.startswith("- ") or line.startswith("* "):
-                    # If there's a current requirement, add it to the list
-                    if current_requirement:
-                        parsed_requirements.append(current_requirement)
-                        
-                    # Create a new requirement
-                    current_requirement = {
-                        "text": line[2:].strip(),
-                        "description": "",
-                        "priority": "medium",
-                        "status": "pending"
-                    }
-                    
-                    # Check for priority markers
-                    if "[high]" in line.lower():
-                        current_requirement["priority"] = "high"
-                        current_requirement["text"] = current_requirement["text"].replace("[high]", "").strip()
-                    elif "[medium]" in line.lower():
-                        current_requirement["priority"] = "medium"
-                        current_requirement["text"] = current_requirement["text"].replace("[medium]", "").strip()
-                    elif "[low]" in line.lower():
-                        current_requirement["priority"] = "low"
-                        current_requirement["text"] = current_requirement["text"].replace("[low]", "").strip()
-                        
-                    # Check for status markers
-                    if "[done]" in line.lower():
-                        current_requirement["status"] = "done"
-                        current_requirement["text"] = current_requirement["text"].replace("[done]", "").strip()
-                    elif "[in progress]" in line.lower():
-                        current_requirement["status"] = "in progress"
-                        current_requirement["text"] = current_requirement["text"].replace("[in progress]", "").strip()
-                    elif "[pending]" in line.lower():
-                        current_requirement["status"] = "pending"
-                        current_requirement["text"] = current_requirement["text"].replace("[pending]", "").strip()
-                elif current_requirement:
-                    # Add the line to the description of the current requirement
-                    current_requirement["description"] += line + "\n"
-                    
-            # Add the last requirement
-            if current_requirement:
-                parsed_requirements.append(current_requirement)
-                
-            # Store the parsed requirements
-            self.requirements = parsed_requirements
-            
-            return parsed_requirements
-        except Exception as e:
-            self.logger.error(f"Error parsing requirements: {str(e)}")
-            return []
-            
-    def generate_requirements_markdown(self, requirements: List[Dict[str, Any]]) -> str:
+                if line and not line.startswith("#"):
+                    self.requirements.add(line)
+
+    def save_requirements(self) -> None:
         """
-        Generate Markdown text from requirements
-        
+        Save requirements to file.
+        """
+        with open(self.requirements_file, "w") as f:
+            for req in sorted(self.requirements):
+                f.write(f"{req}\n")
+
+    def add_requirement(self, requirement: str) -> None:
+        """
+        Add a requirement.
+
         Args:
-            requirements: List of requirements
-            
-        Returns:
-            str: Markdown text
+            requirement: The requirement to add.
         """
-        try:
-            # Generate Markdown text
-            markdown = "# Requirements\n\n"
-            
-            # Add requirements
-            for requirement in requirements:
-                # Add priority and status markers
-                markers = []
-                
-                if requirement.get("priority") != "medium":
-                    markers.append(f"[{requirement.get('priority')}]")
-                    
-                if requirement.get("status") != "pending":
-                    markers.append(f"[{requirement.get('status')}]")
-                    
-                markers_text = " ".join(markers)
-                
-                if markers_text:
-                    markdown += f"- {requirement.get('text')} {markers_text}\n"
-                else:
-                    markdown += f"- {requirement.get('text')}\n"
-                    
-                # Add description
-                description = requirement.get("description", "").strip()
-                if description:
-                    # Indent the description
-                    indented_description = "\n".join([f"  {line}" for line in description.split("\n")])
-                    markdown += f"{indented_description}\n"
-                    
-                markdown += "\n"
-                
-            return markdown
-        except Exception as e:
-            self.logger.error(f"Error generating requirements Markdown: {str(e)}")
-            return ""
-            
-    def update_requirement_status(self, requirement_text: str, status: str) -> bool:
-        """
-        Update the status of a requirement
+        if not self.initialized:
+            self.initialize()
         
+        self.requirements.add(requirement)
+
+    def remove_requirement(self, requirement: str) -> None:
+        """
+        Remove a requirement.
+
         Args:
-            requirement_text: Text of the requirement
-            status: New status
-            
-        Returns:
-            bool: True if successful, False otherwise
+            requirement: The requirement to remove.
         """
-        try:
-            # Find the requirement
-            for requirement in self.requirements:
-                if requirement.get("text") == requirement_text:
-                    # Update the status
-                    requirement["status"] = status
-                    return True
-                    
-            return False
-        except Exception as e:
-            self.logger.error(f"Error updating requirement status: {str(e)}")
-            return False
-            
-    def get_pending_requirements(self) -> List[Dict[str, Any]]:
-        """
-        Get pending requirements
+        if not self.initialized:
+            self.initialize()
         
+        if requirement in self.requirements:
+            self.requirements.remove(requirement)
+
+    def get_requirements(self) -> Set[str]:
+        """
+        Get all requirements.
+
         Returns:
-            List[Dict[str, Any]]: List of pending requirements
+            The set of requirements.
         """
-        try:
-            # Filter requirements by status
-            return [req for req in self.requirements if req.get("status") == "pending"]
-        except Exception as e:
-            self.logger.error(f"Error getting pending requirements: {str(e)}")
-            return []
-            
-    def get_in_progress_requirements(self) -> List[Dict[str, Any]]:
-        """
-        Get in-progress requirements
+        if not self.initialized:
+            self.initialize()
         
+        return self.requirements.copy()
+
+    def parse_requirements_from_text(self, text: str) -> List[str]:
+        """
+        Parse requirements from text.
+
+        Args:
+            text: The text to parse requirements from.
+
         Returns:
-            List[Dict[str, Any]]: List of in-progress requirements
+            The list of requirements.
         """
-        try:
-            # Filter requirements by status
-            return [req for req in self.requirements if req.get("status") == "in progress"]
-        except Exception as e:
-            self.logger.error(f"Error getting in-progress requirements: {str(e)}")
-            return []
-            
-    def get_completed_requirements(self) -> List[Dict[str, Any]]:
-        """
-        Get completed requirements
+        if not self.initialized:
+            self.initialize()
         
-        Returns:
-            List[Dict[str, Any]]: List of completed requirements
+        requirements = []
+        
+        # Match pip install statements
+        pip_install_pattern = r"pip\s+install\s+([\w\-\.\[\]>=<]+)"
+        pip_installs = re.findall(pip_install_pattern, text)
+        requirements.extend(pip_installs)
+        
+        # Match import statements
+        import_pattern = r"import\s+([\w\-\.]+)"
+        imports = re.findall(import_pattern, text)
+        requirements.extend(imports)
+        
+        # Match from ... import statements
+        from_import_pattern = r"from\s+([\w\-\.]+)\s+import"
+        from_imports = re.findall(from_import_pattern, text)
+        requirements.extend(from_imports)
+        
+        # Clean up requirements
+        cleaned_requirements = []
+        for req in requirements:
+            # Remove version specifiers
+            req = re.sub(r"[>=<\[\]]+.*$", "", req)
+            # Remove submodules
+            req = req.split(".")[0]
+            # Skip standard library modules
+            if req not in ["os", "sys", "re", "math", "json", "time", "datetime", "random", "collections", "itertools"]:
+                cleaned_requirements.append(req)
+        
+        return cleaned_requirements
+
+    def add_requirements_from_text(self, text: str) -> None:
         """
-        try:
-            # Filter requirements by status
-            return [req for req in self.requirements if req.get("status") == "done"]
-        except Exception as e:
-            self.logger.error(f"Error getting completed requirements: {str(e)}")
-            return []
+        Add requirements from text.
+
+        Args:
+            text: The text to parse requirements from.
+        """
+        if not self.initialized:
+            self.initialize()
+        
+        requirements = self.parse_requirements_from_text(text)
+        for req in requirements:
+            self.add_requirement(req)
 

@@ -232,11 +232,8 @@ class RequirementsManager:
         self.atomic_tasks = []
         self.dependency_graph = None
         
-        # Create requirements file if it doesn't exist
-        if not os.path.exists(self.requirements_path):
-            self.create_requirements_file()
-            
-        logger.info("Requirements manager initialized")
+        # Initialize the requirements manager
+        self.initialize()
         
     def create_requirements_file(self, content: str = None) -> None:
         """
@@ -248,10 +245,14 @@ class RequirementsManager:
         if content is None:
             content = self._get_template()
             
-        with open(self.requirements_path, "w") as f:
-            f.write(content)
-            
-        logger.info(f"Created REQUIREMENTS.md at {self.requirements_path}")
+        try:
+            with open(self.requirements_path, "w") as f:
+                f.write(content)
+                
+            self.logger.info(f"Created REQUIREMENTS.md at {self.requirements_path}")
+        except Exception as e:
+            self.logger.error(f"Failed to create REQUIREMENTS.md: {e}")
+            raise
         
     def _get_template(self) -> str:
         """Get a template for REQUIREMENTS.md"""
@@ -1009,4 +1010,4 @@ This document outlines the structure of the project.
         else:
             self.dependency_graph = DependencyGraph()
             
-        logger.info("Requirements manager initialized")
+        self.logger.info("Requirements manager initialized")

@@ -55,9 +55,17 @@ api_credentials = {
 config = AppConfigSource()
 
 # Create dependencies for TaskWeaver app
-# Get log directory from config or use a default
-log_dir = os.path.join(os.path.dirname(current_dir), "logs")
-os.makedirs(log_dir, exist_ok=True)
+def create_log_directory():
+    """
+    Create and return the log directory path.
+    Attempts to get log_dir from config, or falls back to a default path.
+    """
+    # Try to get log directory from config or use a default
+    log_dir = config.get("log_dir", os.path.join(os.path.dirname(current_dir), "logs"))
+    os.makedirs(log_dir, exist_ok=True)
+    return log_dir
+
+log_dir = create_log_directory()
 telemetry_logger = TelemetryLogger(log_dir=log_dir)
 session_manager = SessionManager(config, telemetry_logger)
 tracing = Tracing(config, telemetry_logger)

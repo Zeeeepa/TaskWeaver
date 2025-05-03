@@ -18,7 +18,9 @@ import os
 import sys
 import argparse
 import logging
-from typing import Dict, Optional, List, Any
+import subprocess
+import importlib.metadata
+from typing import Dict, Optional, List, Any, Tuple
 
 # Set up logging
 logging.basicConfig(
@@ -26,6 +28,12 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("taskweaver")
+
+# Version information
+try:
+    __version__ = importlib.metadata.version("taskweaver")
+except importlib.metadata.PackageNotFoundError:
+    __version__ = "unknown"
 
 def parse_args():
     """
@@ -57,12 +65,37 @@ def parse_args():
     common_group = parser.add_argument_group("Common Options")
     common_group.add_argument("--config", type=str, help="Path to configuration file")
     common_group.add_argument("--debug", action="store_true", help="Enable debug logging")
+    common_group.add_argument("--version", action="store_true", help="Display version information and exit")
+    common_group.add_argument("--auto-install", action="store_true", help="Automatically install missing dependencies")
     
     return parser.parse_args()
 
-def launch_web_ui(host: str = "0.0.0.0", port: int = 8000):
+def install_package(package: str) -> Tuple[bool, str]:
+    """
+    Install a Python package using pip
+    
+    Args:
+        package: Package name or installation string (e.g., "PyQt5" or "-e .")
+        
+    Returns:
+        Tuple of (success, message)
+    """
+    try:
+        logger.info(f"Installing {package}...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install"] + package.split())
+        return True, f"Successfully installed {package}"
+    except subprocess.CalledProcessError as e:
+        return False, f"Failed to install {package}: {str(e)}"
+
+def launch_web_ui(host: str = "0.0.0.0", port: int = 8000, config_path: Optional[str] = None, auto_install: bool = False):
     """
     Launch the web UI
+    
+    Args:
+        host: Host to bind the web server to
+        port: Port to bind the web server to
+        config_path: Path to configuration file
+        auto_install: Whether to automatically install missing dependencies
     """
     try:
         from standalone_taskweaver.ui.server import run_server
@@ -70,19 +103,40 @@ def launch_web_ui(host: str = "0.0.0.0", port: int = 8000):
         logger.info(f"Starting TaskWeaver Web UI on http://{host}:{port}")
         logger.info("Press Ctrl+C to stop the server")
         
+        # Apply configuration if provided
+        if config_path:
+            os.environ["TASKWEAVER_CONFIG_PATH"] = config_path
+            logger.info(f"Using configuration from {config_path}")
+        
         run_server(host=host, port=port)
         return 0
     except ImportError as e:
         logger.error(f"Failed to import web UI components: {str(e)}")
-        logger.error("Make sure all dependencies are installed: pip install -e .")
+        
+        if auto_install:
+            logger.info("Attempting to install missing dependencies...")
+            success, message = install_package("-e .")
+            if success:
+                logger.info(f"{message}. Please rerun the script.")
+            else:
+                logger.error(message)
+                logger.error("Please install dependencies manually: pip install -e .")
+        else:
+            logger.error("Make sure all dependencies are installed: pip install -e .")
+            logger.error("Use --auto-install to automatically install dependencies")
+        
         return 1
     except Exception as e:
         logger.error(f"Error launching web UI: {str(e)}")
         return 1
 
-def launch_gui():
+def launch_gui(config_path: Optional[str] = None, auto_install: bool = False):
     """
     Launch the desktop GUI
+    
+    Args:
+        config_path: Path to configuration file
+        auto_install: Whether to automatically install missing dependencies
     """
     try:
         from PyQt5.QtWidgets import QApplication
@@ -90,62 +144,132 @@ def launch_gui():
         
         logger.info("Starting TaskWeaver Desktop GUI")
         
+        # Apply configuration if provided
+        if config_path:
+            os.environ["TASKWEAVER_CONFIG_PATH"] = config_path
+            logger.info(f"Using configuration from {config_path}")
+        
         app = QApplication(sys.argv)
         gui = TaskWeaverGUI()
         gui.show()
         return app.exec_()
     except ImportError as e:
         logger.error(f"Failed to import GUI components: {str(e)}")
-        logger.error("Make sure PyQt5 is installed: pip install PyQt5")
+        
+        if auto_install:
+            logger.info("Attempting to install missing dependencies...")
+            success, message = install_package("PyQt5")
+            if success:
+                logger.info(f"{message}. Please rerun the script.")
+            else:
+                logger.error(message)
+                logger.error("Please install PyQt5 manually: pip install PyQt5")
+        else:
+            logger.error("Make sure PyQt5 is installed: pip install PyQt5")
+            logger.error("Use --auto-install to automatically install dependencies")
+        
         return 1
     except Exception as e:
         logger.error(f"Error launching GUI: {str(e)}")
         return 1
 
-def launch_cli(project_dir: Optional[str] = None, interactive: bool = False):
+def launch_cli(project_dir: Optional[str] = None, interactive: bool = False, 
+               config_path: Optional[str] = None, auto_install: bool = False):
     """
     Launch the CLI interface
+    
+    Args:
+        project_dir: Project directory path
+        interactive: Whether to run in interactive mode
+        config_path: Path to configuration file
+        auto_install: Whether to automatically install missing dependencies
     """
     try:
         from taskweaver_launcher import TaskWeaverCLI
         
         logger.info("Starting TaskWeaver CLI")
         
+        # Apply configuration if provided
+        if config_path:
+            os.environ["TASKWEAVER_CONFIG_PATH"] = config_path
+            logger.info(f"Using configuration from {config_path}")
+        
         cli = TaskWeaverCLI()
         
-        if interactive and project_dir:
+        if not project_dir:
+            raise ValueError("Project directory is required for CLI mode. Use --project to specify a project directory.")
+        
+        if interactive:
             logger.info(f"Running in interactive mode with project directory: {project_dir}")
             cli.run_interactive(project_dir)
             return 0
-        elif project_dir:
+        else:
             # Initialize and return
             success = cli.initialize(project_dir)
             return 0 if success else 1
-        else:
-            logger.error("Project directory is required for CLI mode")
-            logger.error("Use --project to specify a project directory")
-            return 1
     except ImportError as e:
         logger.error(f"Failed to import CLI components: {str(e)}")
-        logger.error("Make sure all dependencies are installed: pip install -e .")
+        
+        if auto_install:
+            logger.info("Attempting to install missing dependencies...")
+            success, message = install_package("-e .")
+            if success:
+                logger.info(f"{message}. Please rerun the script.")
+            else:
+                logger.error(message)
+                logger.error("Please install dependencies manually: pip install -e .")
+        else:
+            logger.error("Make sure all dependencies are installed: pip install -e .")
+            logger.error("Use --auto-install to automatically install dependencies")
+        
+        return 1
+    except ValueError as e:
+        logger.error(str(e))
         return 1
     except Exception as e:
         logger.error(f"Error launching CLI: {str(e)}")
         return 1
 
-def setup_environment(debug: bool = False):
+def setup_environment(debug: bool = False, config_path: Optional[str] = None):
     """
     Set up the environment for TaskWeaver
+    
+    Args:
+        debug: Whether to enable debug logging
+        config_path: Path to configuration file
     """
     # Set up logging level
     if debug:
         logging.getLogger().setLevel(logging.DEBUG)
         logger.debug("Debug logging enabled")
     
+    # Apply configuration if provided
+    if config_path:
+        if not os.path.exists(config_path):
+            logger.warning(f"Configuration file not found: {config_path}")
+        else:
+            os.environ["TASKWEAVER_CONFIG_PATH"] = config_path
+            logger.debug(f"Using configuration from {config_path}")
+    
     # Check for required environment variables
     if not os.environ.get("OPENAI_API_KEY"):
         logger.warning("OPENAI_API_KEY environment variable not set")
         logger.warning("You may need to set this for TaskWeaver to function properly")
+    
+    # Check for other optional but recommended environment variables
+    if not os.environ.get("OPENAI_API_BASE"):
+        logger.debug("OPENAI_API_BASE not set, using default OpenAI API endpoint")
+    
+    if not os.environ.get("OPENAI_MODEL"):
+        logger.debug("OPENAI_MODEL not set, using default model")
+
+def display_version():
+    """
+    Display version information
+    """
+    print(f"TaskWeaver version: {__version__}")
+    print("A code-first agent framework for data analytics tasks")
+    print("https://github.com/microsoft/TaskWeaver")
 
 def main():
     """
@@ -154,26 +278,31 @@ def main():
     # Parse command line arguments
     args = parse_args()
     
+    # Display version and exit if requested
+    if args.version:
+        display_version()
+        return 0
+    
     # Set up environment
-    setup_environment(debug=args.debug)
+    setup_environment(debug=args.debug, config_path=args.config)
     
     # Print banner
     print("=" * 80)
-    print("TaskWeaver - A code-first agent framework for data analytics tasks")
+    print(f"TaskWeaver v{__version__} - A code-first agent framework for data analytics tasks")
     print("=" * 80)
     
     # Launch the appropriate UI
     if args.web:
-        return launch_web_ui(host=args.host, port=args.port)
+        return launch_web_ui(host=args.host, port=args.port, config_path=args.config, auto_install=args.auto_install)
     elif args.gui:
-        return launch_gui()
+        return launch_gui(config_path=args.config, auto_install=args.auto_install)
     elif args.cli:
-        return launch_cli(project_dir=args.project, interactive=args.interactive)
+        return launch_cli(project_dir=args.project, interactive=args.interactive, 
+                         config_path=args.config, auto_install=args.auto_install)
     else:
         # Default to web UI if no mode specified
         logger.info("No UI mode specified, defaulting to web UI")
-        return launch_web_ui(host=args.host, port=args.port)
+        return launch_web_ui(host=args.host, port=args.port, config_path=args.config, auto_install=args.auto_install)
 
 if __name__ == "__main__":
     sys.exit(main())
-

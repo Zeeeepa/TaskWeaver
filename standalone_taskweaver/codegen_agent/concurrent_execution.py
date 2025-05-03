@@ -31,6 +31,142 @@ from standalone_taskweaver.codegen_agent.task_polling import poll_codegen_task_a
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("concurrent-execution")
 
+class ErrorHandlingFramework:
+    """
+    Framework for handling errors during task execution with various fallback strategies
+    """
+    
+    @inject
+    def __init__(
+        self,
+        app: TaskWeaverApp,
+        config: AppConfigSource,
+        logger: TelemetryLogger,
+    ) -> None:
+        self.app = app
+        self.config = config
+        self.logger = logger
+        self.codegen_org_id = None
+        self.codegen_token = None
+        
+    def initialize(self, codegen_org_id: str, codegen_token: str) -> None:
+        """
+        Initialize with Codegen credentials
+        
+        Args:
+            codegen_org_id: Codegen organization ID
+            codegen_token: Codegen API token
+        """
+        self.codegen_org_id = codegen_org_id
+        self.codegen_token = codegen_token
+        
+    def handle_error(self, task: AtomicTask, error: Exception) -> Any:
+        """
+        Handle errors with appropriate fallback strategies
+        
+        Args:
+            task: Atomic task
+            error: Exception
+            
+        Returns:
+            Task result or None
+        """
+        self.logger.error(f"Error executing task {task.id}: {str(error)}")
+        
+        # Try different fallback strategies
+        strategies = [
+            self.retry_with_backoff,
+            self.simplify_task,
+            self.use_alternative_approach
+        ]
+        
+        for strategy in strategies:
+            try:
+                self.logger.info(f"Trying fallback strategy: {strategy.__name__}")
+                result = strategy(task)
+                if result is not None:
+                    return result
+            except Exception as e:
+                self.logger.error(f"Fallback strategy {strategy.__name__} failed: {str(e)}")
+                
+        # If all strategies fail, return None
+        return None
+        
+    def retry_with_backoff(self, task: AtomicTask, max_retries: int = 3) -> Any:
+        """
+        Retry failed tasks with exponential backoff
+        
+        Args:
+            task: Atomic task
+            max_retries: Maximum number of retries
+            
+        Returns:
+            Task result or None
+        """
+        for attempt in range(max_retries):
+            try:
+                # Exponential backoff: 2^attempt seconds
+                backoff_time = 2 ** attempt
+                self.logger.info(f"Retrying task {task.id}, attempt {attempt+1}/{max_retries} after {backoff_time}s")
+                time.sleep(backoff_time)
+                
+                # Execute the task
+                return task.execute()
+            except Exception as e:
+                self.logger.error(f"Retry attempt {attempt+1} failed: {str(e)}")
+                
+        return None
+        
+    def simplify_task(self, task: AtomicTask) -> Any:
+        """
+        Simplify the task by breaking it down or reducing complexity
+        
+        Args:
+            task: Atomic task
+            
+        Returns:
+            Task result or None
+        """
+        try:
+            # Create a simplified version of the task
+            simplified_task = AtomicTask(
+                id=f"{task.id}_simplified",
+                description=f"Simplified version of: {task.description}",
+                prompt=f"Simplify and solve only the core part of this task: {task.prompt}",
+                dependencies=[]
+            )
+            
+            # Execute the simplified task
+            return simplified_task.execute()
+        except Exception as e:
+            self.logger.error(f"Failed to execute simplified task: {str(e)}")
+            return None
+            
+    def use_alternative_approach(self, task: AtomicTask) -> Any:
+        """
+        Try an alternative approach to solve the task
+        
+        Args:
+            task: Atomic task
+            
+        Returns:
+            Task result or None
+        """
+        try:
+            # Create a task with an alternative approach
+            alternative_task = AtomicTask(
+                id=f"{task.id}_alternative",
+                description=f"Alternative approach for: {task.description}",
+                prompt=f"Try a completely different approach to solve this task: {task.prompt}",
+                dependencies=[]
+            )
+            
+            # Execute the alternative task
+            return alternative_task.execute()
+        except Exception as e:
+            self.logger.error(f"Failed to execute alternative approach: {str(e)}")
+            return None
+
 class TaskStatus(Enum):
     """
     Status of a task

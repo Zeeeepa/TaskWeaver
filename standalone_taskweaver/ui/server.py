@@ -19,6 +19,9 @@ from standalone_taskweaver.app.app import TaskWeaverApp
 from standalone_taskweaver.config.config_mgt import AppConfigSource
 from standalone_taskweaver.logging import TelemetryLogger
 from standalone_taskweaver.codegen_agent.integration import CodegenIntegration
+from standalone_taskweaver.codegen_agent.bidirectional_context import BidirectionalContext
+from standalone_taskweaver.codegen_agent.advanced_api import CodegenAdvancedAPI
+from standalone_taskweaver.ui.taskweaver_ui import TaskWeaverUI
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -54,138 +57,61 @@ github_repos = []
 # Store active tasks
 active_tasks = {}
 
-class TaskWeaverUI:
-    """
-    TaskWeaver UI class
-    """
-    
-    @inject
-    def __init__(
-        self,
-        app: TaskWeaverApp,
-        config: AppConfigSource,
-        logger: TelemetryLogger,
-    ) -> None:
-        self.app = app
-        self.config = config
-        self.logger = logger
-        self.codegen_integration = CodegenIntegration(app, config, logger)
-        
-    def initialize_integration(self):
-        """
-        Initialize Codegen integration with API credentials
-        """
-        if not all([
-            api_credentials["github_token"],
-            api_credentials["codegen_token"],
-            api_credentials["ngrok_token"],
-            api_credentials["codegen_org_id"]
-        ]):
-            return False
-            
-        try:
-            # Initialize Codegen integration
-            success = self.codegen_integration.initialize(
-                github_token=api_credentials["github_token"],
-                codegen_token=api_credentials["codegen_token"],
-                ngrok_token=api_credentials["ngrok_token"],
-                codegen_org_id=api_credentials["codegen_org_id"]
-            )
-            
-            return success
-        except Exception as e:
-            logger.error(f"Error initializing Codegen integration: {str(e)}")
-            return False
-            
-    def get_github_repos(self) -> List[Dict[str, Any]]:
-        """
-        Get list of GitHub repositories
-        """
-        if not self.codegen_integration.is_initialized:
-            if not self.initialize_integration():
-                return []
-                
-        return self.codegen_integration.get_repositories()
-        
-    def set_repository(self, repo_name: str) -> bool:
-        """
-        Set the active GitHub repository
-        """
-        if not self.codegen_integration.is_initialized:
-            if not self.initialize_integration():
-                return False
-                
-        return self.codegen_integration.set_repository(repo_name)
-        
-    def create_codegen_task(self, prompt: str, repo_name: Optional[str] = None) -> Optional[str]:
-        """
-        Create a Codegen task
-        """
-        if not self.codegen_integration.is_initialized:
-            if not self.initialize_integration():
-                return None
-                
-        return self.codegen_integration.create_codegen_task(prompt, repo_name)
-        
-    def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get the status of a Codegen task
-        """
-        if not self.codegen_integration.is_initialized:
-            if not self.initialize_integration():
-                return None
-                
-        return self.codegen_integration.get_task_status(task_id)
-        
-    def create_requirements_document(self, requirements: str) -> Dict[str, Any]:
-        """
-        Create or update a REQUIREMENTS.md file in the repository
-        """
-        if not self.codegen_integration.is_initialized:
-            if not self.initialize_integration():
-                return {"success": False, "error": "Codegen integration not initialized"}
-                
-        success, error = self.codegen_integration.create_requirements_document(requirements)
-        return {"success": success, "error": error}
-        
-    def start_workflow(self) -> bool:
-        """
-        Start the Codegen workflow
-        """
-        if not self.codegen_integration.is_initialized:
-            if not self.initialize_integration():
-                return False
-                
-        return self.codegen_integration.start_workflow()
-        
-    def stop_workflow(self) -> bool:
-        """
-        Stop the Codegen workflow
-        """
-        if not self.codegen_integration.is_initialized:
-            if not self.initialize_integration():
-                return False
-                
-        return self.codegen_integration.stop_workflow()
-        
-    def get_integration_status(self) -> Dict[str, Any]:
-        """
-        Get the status of the Codegen integration
-        """
-        if not self.codegen_integration.is_initialized:
-            return {
-                "initialized": False,
-                "github_connected": False,
-                "codegen_connected": False,
-                "ngrok_connected": False,
-                "workflow_manager": False,
-                "repository": None
-            }
-            
-        return self.codegen_integration.get_status()
-
 # Create TaskWeaverUI instance
-ui = TaskWeaverUI(None, None, None)
+ui = None
+
+# API Models
+class InitializeRequest(BaseModel):
+    github_token: str
+    codegen_token: str
+    ngrok_token: str
+    codegen_org_id: str
+
+class SetRepositoryRequest(BaseModel):
+    repo_name: str
+
+class CreateTaskRequest(BaseModel):
+    prompt: str
+    repo_name: Optional[str] = None
+
+class GenerateCodeRequest(BaseModel):
+    prompt: str
+    language: str
+
+class AnalyzeCodeRequest(BaseModel):
+    code: str
+    language: str
+
+class RefactorCodeRequest(BaseModel):
+    code: str
+    language: str
+    instructions: str
+
+class GenerateTestsRequest(BaseModel):
+    code: str
+    language: str
+
+class ContextUpdateRequest(BaseModel):
+    context: Dict[str, Any]
+
+class IssueRequest(BaseModel):
+    issue_number: int
+
+class PrRequest(BaseModel):
+    pr_number: int
+
+class FileRequest(BaseModel):
+    file_path: str
+
+class RequirementsRequest(BaseModel):
+    requirements: str
+
+# Initialize UI
+def get_ui():
+    global ui
+    if ui is None:
+        ui = TaskWeaverUI(None, None, None)
+    return ui
 
 # API routes
 @app.get("/", response_class=HTMLResponse)
@@ -195,23 +121,42 @@ async def get_index(request: Request):
     """
     return templates.TemplateResponse("index.html", {"request": request})
 
-@app.post("/api/set_credentials")
-async def set_credentials(
-    github_token: str = Form(...),
-    codegen_token: str = Form(...),
-    ngrok_token: str = Form(...),
-    codegen_org_id: str = Form(...)
-):
+@app.get("/codegen", response_class=HTMLResponse)
+async def get_codegen(request: Request):
     """
-    Set API credentials
+    Get the Codegen page
     """
-    api_credentials["github_token"] = github_token
-    api_credentials["codegen_token"] = codegen_token
-    api_credentials["ngrok_token"] = ngrok_token
-    api_credentials["codegen_org_id"] = codegen_org_id
+    return templates.TemplateResponse("codegen.html", {"request": request})
+
+@app.get("/api/codegen/status")
+async def get_codegen_status():
+    """
+    Get the status of the Codegen integration
+    """
+    ui = get_ui()
+    status = ui.get_integration_status()
+    return status
+
+@app.post("/api/codegen/initialize")
+async def initialize_codegen(request: InitializeRequest):
+    """
+    Initialize Codegen integration
+    """
+    ui = get_ui()
+    
+    # Update API credentials
+    api_credentials["github_token"] = request.github_token
+    api_credentials["codegen_token"] = request.codegen_token
+    api_credentials["ngrok_token"] = request.ngrok_token
+    api_credentials["codegen_org_id"] = request.codegen_org_id
     
     # Initialize Codegen integration
-    success = ui.initialize_integration()
+    success = ui.initialize_integration(
+        github_token=request.github_token,
+        codegen_token=request.codegen_token,
+        ngrok_token=request.ngrok_token,
+        codegen_org_id=request.codegen_org_id
+    )
     
     if success:
         # Get GitHub repositories
@@ -220,100 +165,193 @@ async def set_credentials(
         
     return {"success": success}
 
-@app.get("/api/get_repos")
-async def get_repos():
+@app.get("/api/codegen/repositories")
+async def get_repositories():
     """
     Get list of GitHub repositories
     """
+    ui = get_ui()
     repos = ui.get_github_repos()
-    return {"repos": repos}
+    
+    # Get active repository
+    status = ui.get_integration_status()
+    active_repo = status.get("repository", None)
+    
+    return {"success": True, "repositories": repos, "active_repository": active_repo}
 
-@app.post("/api/set_repository")
-async def set_repository(repo_name: str = Form(...)):
+@app.post("/api/codegen/repository")
+async def set_repository(request: SetRepositoryRequest):
     """
     Set the active GitHub repository
     """
-    success = ui.set_repository(repo_name)
+    ui = get_ui()
+    success = ui.set_repository(request.repo_name)
     return {"success": success}
 
-@app.post("/api/create_task")
-async def create_task(prompt: str = Form(...), repo_name: Optional[str] = Form(None)):
+@app.post("/api/codegen/tasks")
+async def create_task(request: CreateTaskRequest):
     """
     Create a Codegen task
     """
-    task_id = ui.create_codegen_task(prompt, repo_name)
+    ui = get_ui()
+    result = ui.create_codegen_task(request.prompt, request.repo_name)
     
-    if task_id:
+    if result.get("success", False):
         # Store task in active tasks
+        task_id = result.get("task_id")
         active_tasks[task_id] = {
             "id": task_id,
-            "prompt": prompt,
-            "repo_name": repo_name,
+            "prompt": request.prompt,
+            "repo_name": request.repo_name,
             "status": "created",
             "created_at": None,
             "updated_at": None,
             "completed": False,
             "result": None
         }
-        
-        return {"success": True, "task_id": task_id}
-    else:
-        return {"success": False, "error": "Failed to create task"}
-
-@app.get("/api/get_task_status/{task_id}")
-async def get_task_status(task_id: str):
-    """
-    Get the status of a Codegen task
-    """
-    status = ui.get_task_status(task_id)
     
-    if status:
+    return result
+
+@app.get("/api/codegen/tasks")
+async def get_tasks():
+    """
+    Get all tasks
+    """
+    ui = get_ui()
+    result = ui.list_tasks()
+    
+    # If no tasks from the API, use the active tasks
+    if not result.get("success", False) or not result.get("tasks"):
+        tasks = []
+        for task_id, task in active_tasks.items():
+            # Get latest status
+            status = ui.get_task_status(task_id)
+            if status.get("success", False):
+                task.update(status.get("task", {}))
+            tasks.append(task)
+        
+        return {"success": True, "tasks": tasks}
+    
+    return result
+
+@app.get("/api/codegen/tasks/{task_id}")
+async def get_task(task_id: str):
+    """
+    Get a specific task
+    """
+    ui = get_ui()
+    result = ui.get_task_status(task_id)
+    
+    if result.get("success", False):
         # Update active task
         if task_id in active_tasks:
-            active_tasks[task_id].update(status)
-            
-        return {"success": True, "status": status}
-    else:
-        return {"success": False, "error": "Failed to get task status"}
+            active_tasks[task_id].update(result.get("task", {}))
+    
+    return result
 
-@app.get("/api/get_active_tasks")
-async def get_active_tasks():
+@app.post("/api/codegen/generate-code")
+async def generate_code(request: GenerateCodeRequest):
     """
-    Get all active tasks
+    Generate code using Codegen
     """
-    return {"success": True, "tasks": active_tasks}
+    ui = get_ui()
+    return ui.generate_code(request.prompt, request.language)
 
-@app.post("/api/create_requirements")
-async def create_requirements(requirements: str = Form(...)):
+@app.post("/api/codegen/analyze-code")
+async def analyze_code(request: AnalyzeCodeRequest):
+    """
+    Analyze code using Codegen
+    """
+    ui = get_ui()
+    return ui.analyze_code(request.code, request.language)
+
+@app.post("/api/codegen/refactor-code")
+async def refactor_code(request: RefactorCodeRequest):
+    """
+    Refactor code using Codegen
+    """
+    ui = get_ui()
+    return ui.refactor_code(request.code, request.language, request.instructions)
+
+@app.post("/api/codegen/generate-tests")
+async def generate_tests(request: GenerateTestsRequest):
+    """
+    Generate tests for code using Codegen
+    """
+    ui = get_ui()
+    return ui.generate_tests(request.code, request.language)
+
+@app.get("/api/codegen/context")
+async def get_context():
+    """
+    Get shared context between TaskWeaver and Codegen
+    """
+    ui = get_ui()
+    return ui.get_shared_context()
+
+@app.post("/api/codegen/context/taskweaver")
+async def update_taskweaver_context(request: ContextUpdateRequest):
+    """
+    Update TaskWeaver context
+    """
+    ui = get_ui()
+    return ui.update_taskweaver_context(request.context)
+
+@app.post("/api/codegen/context/codegen")
+async def update_codegen_context(request: ContextUpdateRequest):
+    """
+    Update Codegen context
+    """
+    ui = get_ui()
+    return ui.update_codegen_context(request.context)
+
+@app.post("/api/codegen/context/issue")
+async def add_issue_to_context(request: IssueRequest):
+    """
+    Add a GitHub issue to the context
+    """
+    ui = get_ui()
+    return ui.add_issue_to_context(request.issue_number)
+
+@app.post("/api/codegen/context/pr")
+async def add_pr_to_context(request: PrRequest):
+    """
+    Add a GitHub pull request to the context
+    """
+    ui = get_ui()
+    return ui.add_pr_to_context(request.pr_number)
+
+@app.post("/api/codegen/context/file")
+async def add_file_to_context(request: FileRequest):
+    """
+    Add a file to the context
+    """
+    ui = get_ui()
+    return ui.add_file_to_context(request.file_path)
+
+@app.post("/api/codegen/requirements")
+async def create_requirements(request: RequirementsRequest):
     """
     Create or update a REQUIREMENTS.md file in the repository
     """
-    result = ui.create_requirements_document(requirements)
-    return result
+    ui = get_ui()
+    return ui.create_requirements_document(request.requirements)
 
-@app.post("/api/start_workflow")
+@app.post("/api/codegen/workflow/start")
 async def start_workflow():
     """
     Start the Codegen workflow
     """
-    success = ui.start_workflow()
-    return {"success": success}
+    ui = get_ui()
+    return ui.start_workflow()
 
-@app.post("/api/stop_workflow")
+@app.post("/api/codegen/workflow/stop")
 async def stop_workflow():
     """
     Stop the Codegen workflow
     """
-    success = ui.stop_workflow()
-    return {"success": success}
-
-@app.get("/api/get_integration_status")
-async def get_integration_status():
-    """
-    Get the status of the Codegen integration
-    """
-    status = ui.get_integration_status()
-    return {"success": True, "status": status}
+    ui = get_ui()
+    return ui.stop_workflow()
 
 def run_server(host: str = "0.0.0.0", port: int = 8000):
     """
@@ -323,3 +361,4 @@ def run_server(host: str = "0.0.0.0", port: int = 8000):
 
 if __name__ == "__main__":
     run_server()
+

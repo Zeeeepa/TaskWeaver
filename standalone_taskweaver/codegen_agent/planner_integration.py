@@ -20,6 +20,8 @@ from standalone_taskweaver.config.config_mgt import AppConfigSource
 from standalone_taskweaver.logging import TelemetryLogger
 from standalone_taskweaver.planner.planner import Planner
 from standalone_taskweaver.codegen_agent.integration import CodegenIntegration
+from standalone_taskweaver.codegen_agent.requirements_manager import AtomicTask, DependencyGraph
+from standalone_taskweaver.codegen_agent.concurrent_execution import TaskResult
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -48,232 +50,334 @@ class CodegenPlannerIntegration:
         Determine if a task is code-related and should be delegated to Codegen
         
         Args:
-            task_description: Description of the task
+            task_description: Task description
             
         Returns:
             bool: True if the task is code-related, False otherwise
         """
-        # Keywords that indicate a code-related task
+        # Check for code-related keywords
         code_keywords = [
-            "code", "implement", "develop", "program", "script",
-            "function", "class", "method", "api", "endpoint",
-            "refactor", "optimize", "debug", "fix bug", "test",
-            "github", "git", "repository", "pull request", "pr",
-            "commit", "merge", "branch", "feature", "issue"
+            "code", "implement", "function", "class", "method", "api",
+            "endpoint", "interface", "module", "library", "package",
+            "script", "program", "algorithm", "data structure", "refactor",
+            "optimize", "debug", "fix", "test", "unit test", "integration test",
+            "documentation", "comment", "docstring", "type hint", "annotation"
         ]
         
         # Check if any of the keywords are in the task description
-        return any(keyword in task_description.lower() for keyword in code_keywords)
-    
-    def delegate_to_codegen(self, task_description: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        for keyword in code_keywords:
+            if keyword in task_description.lower():
+                return True
+                
+        return False
+        
+    def delegate_to_codegen(self, task_description: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
         """
-        Delegate a code-related task to Codegen
+        Delegate a task to Codegen
         
         Args:
-            task_description: Description of the task
-            context: Context information for the task
+            task_description: Task description
+            context: Optional context for the task
             
         Returns:
-            Dict[str, Any]: Result of the Codegen task
+            Dict[str, Any]: Result of the task
         """
-        try:
-            # Create a prompt for Codegen
-            prompt = self._create_codegen_prompt(task_description, context)
+        if not self.codegen_integration.is_initialized:
+            raise ValueError("Codegen integration not initialized")
             
-            # Create a Codegen task
-            task_id = self.codegen_integration.create_codegen_task(prompt)
+        # Create a prompt for the task
+        prompt = self._create_prompt(task_description, context)
+        
+        # Execute the task using Codegen
+        task = self.codegen_integration.run_codegen_task(prompt)
+        
+        # Wait for the task to complete
+        while self.codegen_integration.get_task_status(task) not in ["completed", "failed", "cancelled"]:
+            # Wait a bit before checking again
+            import time
+            time.sleep(5)
             
-            if not task_id:
-                self.logger.error("Failed to create Codegen task")
-                return {"success": False, "error": "Failed to create Codegen task"}
-            
-            # Wait for the task to complete
-            result = self._wait_for_task_completion(task_id)
-            
-            return result
-        except Exception as e:
-            self.logger.error(f"Error delegating task to Codegen: {str(e)}")
-            return {"success": False, "error": str(e)}
-    
-    def _create_codegen_prompt(self, task_description: str, context: Dict[str, Any]) -> str:
+        # Get the result
+        result = self.codegen_integration.get_task_result(task)
+        
+        # Return the result
+        return {
+            "task_description": task_description,
+            "result": result,
+            "status": self.codegen_integration.get_task_status(task),
+        }
+        
+    def _create_prompt(self, task_description: str, context: Dict[str, Any] = None) -> str:
         """
-        Create a prompt for Codegen based on the task description and context
+        Create a prompt for a task
         
         Args:
-            task_description: Description of the task
-            context: Context information for the task
+            task_description: Task description
+            context: Optional context for the task
             
         Returns:
-            str: Prompt for Codegen
+            str: Prompt for the task
         """
-        # Extract relevant information from context
-        repository = context.get("repository", "")
-        files = context.get("files", [])
-        requirements = context.get("requirements", "")
+        prompt = f"# Task: {task_description}\n\n"
         
-        # Create a prompt template
-        prompt_template = f"""
-Task: {task_description}
-
-Repository: {repository}
-
-Context:
-{json.dumps(context, indent=2)}
-
-Requirements:
-{requirements}
-
-Please implement this task by:
-1. Analyzing the requirements and context
-2. Creating or modifying the necessary code
-3. Testing the implementation
-4. Creating a pull request with the changes
-"""
-        
-        return prompt_template
-    
-    def _wait_for_task_completion(self, task_id: str, timeout: int = 3600) -> Dict[str, Any]:
-        """
-        Wait for a Codegen task to complete
-        
-        Args:
-            task_id: ID of the Codegen task
-            timeout: Maximum time to wait in seconds
+        if context:
+            prompt += "## Context\n\n"
             
-        Returns:
-            Dict[str, Any]: Result of the Codegen task
-        """
-        import time
+            # Add context information
+            for key, value in context.items():
+                prompt += f"### {key}\n\n"
+                
+                if isinstance(value, dict):
+                    for k, v in value.items():
+                        prompt += f"- {k}: {v}\n"
+                elif isinstance(value, list):
+                    for item in value:
+                        prompt += f"- {item}\n"
+                else:
+                    prompt += f"{value}\n"
+                    
+                prompt += "\n"
+                
+        prompt += "## Instructions\n\n"
+        prompt += "Please implement this task according to the description and context provided.\n"
+        prompt += "Ensure your implementation is well-documented, properly tested, and follows best practices.\n"
         
-        start_time = time.time()
-        while time.time() - start_time < timeout:
-            # Get task status
-            status = self.codegen_integration.get_task_status(task_id)
-            
-            if not status:
-                self.logger.error(f"Failed to get status for task {task_id}")
-                return {"success": False, "error": f"Failed to get status for task {task_id}"}
-            
-            # Check if task is completed
-            if status.get("completed", False):
-                return {
-                    "success": True,
-                    "task_id": task_id,
-                    "status": status.get("status"),
-                    "result": status.get("result")
-                }
-            
-            # Wait before checking again
-            time.sleep(10)
+        return prompt
         
-        # Timeout
-        return {"success": False, "error": f"Task {task_id} timed out"}
-    
     def incorporate_codegen_result(self, planner: Planner, task_id: str, result: Dict[str, Any]) -> None:
         """
-        Incorporate the result of a Codegen task into the planner
+        Incorporate Codegen result into the planner
         
         Args:
             planner: TaskWeaver planner
-            task_id: ID of the task in the planner
-            result: Result of the Codegen task
+            task_id: Task ID
+            result: Result from Codegen
         """
-        try:
-            if result.get("success", False):
-                # Extract information from the result
-                pr_url = self._extract_pr_url(result)
-                code_changes = self._extract_code_changes(result)
+        # Get the task from the planner
+        task = planner.get_task(task_id)
+        
+        if not task:
+            logger.warning(f"Task {task_id} not found in planner")
+            return
+            
+        # Update the task with the result
+        task.result = result.get("result", "")
+        
+        # Mark the task as completed if successful
+        if result.get("status") == "completed":
+            task.status = "completed"
+        else:
+            task.status = "failed"
+            
+        # Update the task in the planner
+        planner.update_task(task)
+        
+    def delegate_atomic_tasks(self, tasks: List[AtomicTask]) -> List[TaskResult]:
+        """
+        Delegate a list of atomic tasks to Codegen for concurrent execution
+        
+        Args:
+            tasks: List of atomic tasks
+            
+        Returns:
+            List[TaskResult]: Results of the tasks
+        """
+        if not self.codegen_integration.is_initialized:
+            raise ValueError("Codegen integration not initialized")
+            
+        # Execute the tasks concurrently
+        import asyncio
+        results = asyncio.run(self.codegen_integration.execute_tasks(tasks))
+        
+        return results
+        
+    def incorporate_atomic_task_results(self, planner: Planner, results: List[TaskResult]) -> None:
+        """
+        Incorporate results of atomic tasks into the planner
+        
+        Args:
+            planner: TaskWeaver planner
+            results: Results of atomic tasks
+        """
+        for result in results:
+            # Create a task in the planner if it doesn't exist
+            if not planner.get_task(result.task_id):
+                planner.create_task(
+                    task_id=result.task_id,
+                    description=f"Codegen task {result.task_id}",
+                    status="pending"
+                )
                 
-                # Update the task in the planner
-                planner.update_task(
-                    task_id=task_id,
-                    status="completed",
-                    result={
-                        "pr_url": pr_url,
-                        "code_changes": code_changes,
-                        "codegen_result": result
-                    }
-                )
+            # Update the task with the result
+            task = planner.get_task(result.task_id)
+            task.result = result.result
+            
+            # Mark the task as completed if successful
+            if result.status.value == "completed":
+                task.status = "completed"
             else:
-                # Update the task with the error
-                planner.update_task(
-                    task_id=task_id,
-                    status="failed",
-                    result={
-                        "error": result.get("error", "Unknown error"),
-                        "codegen_result": result
-                    }
+                task.status = "failed"
+                
+            # Update the task in the planner
+            planner.update_task(task)
+            
+    def create_atomic_tasks_from_plan(self, planner: Planner) -> List[AtomicTask]:
+        """
+        Create atomic tasks from a planner's tasks
+        
+        Args:
+            planner: TaskWeaver planner
+            
+        Returns:
+            List[AtomicTask]: List of atomic tasks
+        """
+        atomic_tasks = []
+        
+        for task_id, task in planner.tasks.items():
+            # Only include code-related tasks
+            if self.is_code_related_task(task.description):
+                atomic_task = AtomicTask(
+                    id=task_id,
+                    title=task.description,
+                    description=task.description,
+                    priority=0,
+                    dependencies=[],
+                    phase=1,
+                    status="pending",
+                    tags=["planner"],
+                    estimated_time=0,
+                    assignee=None,
+                    interface_definition=False,
                 )
-        except Exception as e:
-            self.logger.error(f"Error incorporating Codegen result: {str(e)}")
-    
-    def _extract_pr_url(self, result: Dict[str, Any]) -> Optional[str]:
+                
+                atomic_tasks.append(atomic_task)
+                
+        return atomic_tasks
+        
+    def identify_dependencies_from_plan(self, planner: Planner, tasks: List[AtomicTask]) -> DependencyGraph:
         """
-        Extract the PR URL from the Codegen result
+        Identify dependencies between tasks based on the planner's task dependencies
         
         Args:
-            result: Result of the Codegen task
+            planner: TaskWeaver planner
+            tasks: List of atomic tasks
             
         Returns:
-            Optional[str]: PR URL if found, None otherwise
+            DependencyGraph: Dependency graph
         """
-        # Try to extract PR URL from the result
-        codegen_result = result.get("result", {})
+        # Create a mapping from task ID to atomic task
+        task_map = {task.id: task for task in tasks}
         
-        # Check if result is a string (might be JSON)
-        if isinstance(codegen_result, str):
-            try:
-                codegen_result = json.loads(codegen_result)
-            except:
-                pass
+        # Update dependencies based on planner's task dependencies
+        for task_id, task in planner.tasks.items():
+            if task_id in task_map:
+                atomic_task = task_map[task_id]
+                
+                # Add dependencies
+                for dep_id in task.dependencies:
+                    if dep_id in task_map:
+                        atomic_task.dependencies.append(dep_id)
+                        
+        # Create a dependency graph
+        graph = self.codegen_integration.identify_dependencies(tasks)
         
-        # Try different possible locations for the PR URL
-        if isinstance(codegen_result, dict):
-            # Check for PR URL in the result
-            pr_url = codegen_result.get("pr_url")
-            if pr_url:
-                return pr_url
-            
-            # Check for PR URL in the changes
-            changes = codegen_result.get("changes", {})
-            if isinstance(changes, dict):
-                pr_url = changes.get("pr_url")
-                if pr_url:
-                    return pr_url
+        return graph
         
-        return None
-    
-    def _extract_code_changes(self, result: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def execute_plan_with_codegen(self, planner: Planner) -> Dict[str, Any]:
         """
-        Extract code changes from the Codegen result
+        Execute a plan using Codegen for code-related tasks
         
         Args:
-            result: Result of the Codegen task
+            planner: TaskWeaver planner
             
         Returns:
-            List[Dict[str, Any]]: List of code changes
+            Dict[str, Any]: Results of the execution
         """
-        # Try to extract code changes from the result
-        codegen_result = result.get("result", {})
+        # Create atomic tasks from the plan
+        tasks = self.create_atomic_tasks_from_plan(planner)
         
-        # Check if result is a string (might be JSON)
-        if isinstance(codegen_result, str):
-            try:
-                codegen_result = json.loads(codegen_result)
-            except:
-                return []
+        # Identify dependencies
+        graph = self.identify_dependencies_from_plan(planner, tasks)
         
-        # Try different possible locations for the code changes
-        if isinstance(codegen_result, dict):
-            # Check for changes in the result
-            changes = codegen_result.get("changes", [])
-            if changes:
-                return changes if isinstance(changes, list) else []
+        # Prioritize tasks
+        phases = self.codegen_integration.prioritize_tasks(graph)
+        
+        # Execute tasks in phases
+        all_results = []
+        
+        for phase_index, phase in enumerate(phases):
+            logger.info(f"Executing phase {phase_index + 1} with {len(phase)} tasks")
             
-            # Check for files in the result
-            files = codegen_result.get("files", [])
-            if files:
-                return files if isinstance(files, list) else []
+            # Execute tasks in this phase
+            results = self.delegate_atomic_tasks(phase)
+            
+            # Incorporate results
+            self.incorporate_atomic_task_results(planner, results)
+            
+            # Add results to all_results
+            all_results.extend(results)
+            
+        return {
+            "phases": len(phases),
+            "tasks": len(tasks),
+            "results": all_results,
+        }
         
-        return []
-
+    def generate_interfaces_for_plan(self, planner: Planner) -> Dict[str, str]:
+        """
+        Generate interfaces for components in the plan
+        
+        Args:
+            planner: TaskWeaver planner
+            
+        Returns:
+            Dict[str, str]: Mapping from component name to interface definition
+        """
+        interfaces = {}
+        
+        # Find components in the plan
+        for task_id, task in planner.tasks.items():
+            # Check if the task is about a component
+            if any(keyword in task.description.lower() for keyword in ["component", "service", "module", "api"]):
+                # Extract component name
+                import re
+                component_match = re.search(r'\b([A-Z][a-z]+(?:[A-Z][a-z]+)*)\b', task.description)
+                
+                if component_match:
+                    component_name = component_match.group(1)
+                    
+                    # Create component specification
+                    component_spec = {
+                        "name": component_name,
+                        "description": task.description,
+                        "task_id": task_id,
+                    }
+                    
+                    # Generate interface
+                    interface = self.codegen_integration.generate_interface(component_spec)
+                    
+                    # Store the interface
+                    interfaces[component_name] = interface
+                    
+        return interfaces
+        
+    def create_mock_implementations(self, interfaces: Dict[str, str]) -> Dict[str, str]:
+        """
+        Create mock implementations for interfaces
+        
+        Args:
+            interfaces: Mapping from component name to interface definition
+            
+        Returns:
+            Dict[str, str]: Mapping from component name to mock implementation
+        """
+        mock_implementations = {}
+        
+        for component_name, interface in interfaces.items():
+            # Create mock implementation
+            mock = self.codegen_integration.create_mock_implementation(interface)
+            
+            # Store the mock implementation
+            mock_implementations[component_name] = mock
+            
+        return mock_implementations

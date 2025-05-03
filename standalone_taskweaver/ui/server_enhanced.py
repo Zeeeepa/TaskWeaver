@@ -1,322 +1,422 @@
 #!/usr/bin/env python3
 """
-Enhanced web server for TaskWeaver UI with multithreaded execution support
+Enhanced server implementation with deployment endpoints
 """
 
 import os
 import json
 import logging
-import asyncio
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Tuple
 
-from fastapi import FastAPI, HTTPException, Depends, Request, Form, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
-import uvicorn
-from injector import inject
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 
 from standalone_taskweaver.app.app import TaskWeaverApp
-from standalone_taskweaver.app.session_manager import SessionManager
 from standalone_taskweaver.config.config_mgt import AppConfigSource
 from standalone_taskweaver.logging import TelemetryLogger
-from standalone_taskweaver.module.tracing import Tracing
 from standalone_taskweaver.ui.taskweaver_ui_enhanced import TaskWeaverUIEnhanced
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("taskweaver-ui-enhanced")
+logger = logging.getLogger("taskweaver-server-enhanced")
 
-# Create FastAPI app
-app = FastAPI(title="TaskWeaver UI Enhanced")
-
-# Get the directory of this file
-current_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Set up templates
-templates_dir = os.path.join(current_dir, "templates")
-os.makedirs(templates_dir, exist_ok=True)
-templates = Jinja2Templates(directory=templates_dir)
-
-# Set up static files
-static_dir = os.path.join(current_dir, "static")
-os.makedirs(static_dir, exist_ok=True)
-app.mount("/static", StaticFiles(directory=static_dir), name="static")
-
-# Store API credentials
-api_credentials = {
-    "github_token": "",
-    "codegen_token": "",
-    "llm_provider": "openai",
-    "llm_api_key": "",
-    "ngrok_token": "",
-}
-
-# Create AppConfigSource
-config = AppConfigSource()
-
-# Create dependencies for TaskWeaver app
-# Get log directory from config or use a default
-log_dir = os.path.join(os.path.dirname(current_dir), "logs")
-os.makedirs(log_dir, exist_ok=True)
-telemetry_logger = TelemetryLogger(log_dir=log_dir)
-# Initialize tracing first since it's required by SessionManager
-# The Tracing class constructor takes no parameters as per its implementation in module/tracing.py
-# This is a dependency for SessionManager which requires config, logger, and tracing instances
-tracing = Tracing()
-# Now initialize SessionManager with all required parameters
-# SessionManager requires three positional arguments: config, logger, and tracing
-session_manager = SessionManager(config, telemetry_logger, tracing)
-
-# Create TaskWeaver app with proper dependencies
-taskweaver_app = TaskWeaverApp(
-    config=config,
-    session_manager=session_manager,
-    logger=telemetry_logger,
-    tracing=tracing
-)
-
-# Create TaskWeaver UI
-ui = TaskWeaverUIEnhanced(taskweaver_app, config, telemetry_logger)
-
-# WebSocket connections
-active_connections: List[WebSocket] = []
-
-# Request models
-class MessageRequest(BaseModel):
-    content: str
-
-class ProjectContextRequest(BaseModel):
-    project_name: str
-    project_description: str
-    github_repo: Optional[str] = None
-
-class ExecuteTasksRequest(BaseModel):
-    max_concurrent_tasks: int = 3
-
-class ApiCredentialsRequest(BaseModel):
-    github_token: Optional[str] = None
-    codegen_token: Optional[str] = None
-    llm_provider: Optional[str] = None
-    llm_api_key: Optional[str] = None
-    ngrok_token: Optional[str] = None
-
-# Routes
-@app.get("/", response_class=HTMLResponse)
-async def get_index(request: Request):
+class TaskWeaverServerEnhanced:
     """
-    Get the index page
+    Enhanced TaskWeaver server implementation with deployment endpoints
     """
-    return templates.TemplateResponse("index_enhanced.html", {"request": request})
-
-@app.post("/api/credentials")
-async def set_credentials(request: ApiCredentialsRequest):
-    """
-    Set API credentials
-    """
-    global api_credentials
     
-    # Update credentials
-    if request.github_token:
-        api_credentials["github_token"] = request.github_token
-    
-    if request.codegen_token:
-        api_credentials["codegen_token"] = request.codegen_token
-        # Initialize Codegen agent
-        ui.initialize_agent(request.codegen_token)
-    
-    if request.llm_provider:
-        api_credentials["llm_provider"] = request.llm_provider
-    
-    if request.llm_api_key:
-        api_credentials["llm_api_key"] = request.llm_api_key
-    
-    if request.ngrok_token:
-        api_credentials["ngrok_token"] = request.ngrok_token
-    
-    return {"status": "success"}
-
-@app.get("/api/credentials")
-async def get_credentials():
-    """
-    Get API credentials status
-    """
-    return {
-        "github_token": bool(api_credentials["github_token"]),
-        "codegen_token": bool(api_credentials["codegen_token"]),
-        "llm_provider": api_credentials["llm_provider"],
-        "llm_api_key": bool(api_credentials["llm_api_key"]),
-        "ngrok_token": bool(api_credentials["ngrok_token"]),
-    }
-
-@app.post("/api/chat/message")
-async def add_message(request: MessageRequest):
-    """
-    Add a message to the chat
-    """
-    # Add message to chat history
-    ui.add_message("user", request.content)
-    
-    # Generate response
-    response = "I've received your message and updated the requirements. When you're satisfied with the plan, press Initialize to start the implementation."
-    ui.add_message("assistant", response)
-    
-    return {"status": "success", "response": response}
-
-@app.get("/api/chat/history")
-async def get_chat_history():
-    """
-    Get chat history
-    """
-    return {"history": ui.get_chat_history()}
-
-@app.post("/api/project/context")
-async def set_project_context(request: ProjectContextRequest):
-    """
-    Set project context
-    """
-    ui.set_project_context(request.project_name, request.project_description)
-    
-    # If GitHub repository is provided, set it
-    if request.github_repo:
-        ui.set_github_repository(request.github_repo)
-    
-    return {"status": "success"}
-
-@app.get("/api/requirements")
-async def get_requirements():
-    """
-    Get requirements
-    """
-    return ui.get_requirements()
-
-@app.post("/api/tasks/execute")
-async def execute_tasks(request: ExecuteTasksRequest):
-    """
-    Execute tasks
-    """
-    # Start task execution
-    ui.execute_tasks(request.max_concurrent_tasks)
-    
-    return {"status": "success"}
-
-@app.get("/api/tasks/status")
-async def get_task_status():
-    """
-    Get task execution status
-    """
-    return ui.get_execution_status()
-
-@app.post("/api/tasks/cancel")
-async def cancel_tasks():
-    """
-    Cancel task execution
-    """
-    result = ui.cancel_execution()
-    
-    return {"status": "success" if result else "error"}
-
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    """
-    WebSocket endpoint for real-time updates
-    """
-    await websocket.accept()
-    active_connections.append(websocket)
-    
-    try:
-        while True:
-            # Wait for messages
-            data = await websocket.receive_text()
-            
-            # Process message
-            message = json.loads(data)
-            
-            if message["type"] == "ping":
-                # Send status update
-                await websocket.send_json({
-                    "type": "status",
-                    "data": ui.get_execution_status()
-                })
-            
-            # Sleep to avoid high CPU usage
-            await asyncio.sleep(0.1)
-    except WebSocketDisconnect:
-        active_connections.remove(websocket)
-    except Exception as e:
-        logger.error(f"WebSocket error: {str(e)}")
-        if websocket in active_connections:
-            active_connections.remove(websocket)
-
-async def broadcast_status():
-    """
-    Broadcast status updates to all connected clients
-    """
-    while True:
-        if active_connections:
-            # Get current status
-            status = ui.get_execution_status()
-            
-            # Broadcast to all connections
-            for connection in active_connections:
-                try:
-                    await connection.send_json({
-                        "type": "status",
-                        "data": status
-                    })
-                except Exception as e:
-                    logger.error(f"Error broadcasting status: {str(e)}")
+    def __init__(
+        self,
+        app: TaskWeaverApp,
+        config: AppConfigSource,
+        logger: TelemetryLogger,
+        ui: Optional[TaskWeaverUIEnhanced] = None,
+        host: str = "0.0.0.0",
+        port: int = 5000,
+    ) -> None:
+        self.app = app
+        self.config = config
+        self.logger = logger
+        self.ui = ui or TaskWeaverUIEnhanced(app, config, logger)
+        self.host = host
+        self.port = port
         
-        # Wait before next update
-        await asyncio.sleep(1)
-
-@app.on_event("startup")
-async def startup_event():
-    """
-    Startup event
-    """
-    # Start background task for broadcasting status
-    asyncio.create_task(broadcast_status())
-
-@app.get("/api/github/repos")
-async def get_github_repos():
-    """
-    Get GitHub repositories
-    """
-    if not api_credentials["github_token"]:
-        return {"status": "error", "message": "GitHub token not set"}
-    
-    try:
-        # Initialize GitHub client with token
-        from github import Github
-        github_client = Github(api_credentials["github_token"])
+        # Create Flask app
+        self.flask_app = Flask(__name__)
+        CORS(self.flask_app)
         
-        # Get repositories
-        repos = []
-        for repo in github_client.get_user().get_repos():
-            repos.append({
-                "name": repo.full_name,
-                "description": repo.description or "",
-                "url": repo.html_url,
-                "stars": repo.stargazers_count,
-                "forks": repo.forks_count,
+        # Register routes
+        self._register_routes()
+    
+    def _register_routes(self) -> None:
+        """
+        Register routes for the Flask app
+        """
+        # Static files
+        @self.flask_app.route("/")
+        def index():
+            return send_from_directory("static", "index.html")
+        
+        @self.flask_app.route("/<path:path>")
+        def static_files(path):
+            return send_from_directory("static", path)
+        
+        # API endpoints
+        @self.flask_app.route("/api/status", methods=["GET"])
+        def status():
+            return jsonify({
+                "status": "ok",
+                "integration": self.ui.get_integration_status()
             })
         
-        return {"status": "success", "repos": repos}
-    except Exception as e:
-        logger.error(f"Error getting GitHub repositories: {str(e)}")
-        return {"status": "error", "message": str(e)}
-
-def run_server(host: str = "0.0.0.0", port: int = 8000):
-    """
-    Run the server
+        @self.flask_app.route("/api/initialize", methods=["POST"])
+        def initialize():
+            data = request.json
+            
+            github_token = data.get("github_token")
+            codegen_token = data.get("codegen_token")
+            ngrok_token = data.get("ngrok_token")
+            codegen_org_id = data.get("codegen_org_id")
+            
+            if not github_token or not codegen_token or not ngrok_token or not codegen_org_id:
+                return jsonify({
+                    "status": "error",
+                    "message": "Missing required parameters"
+                }), 400
+            
+            success = self.ui.initialize_integration(
+                github_token=github_token,
+                codegen_token=codegen_token,
+                ngrok_token=ngrok_token,
+                codegen_org_id=codegen_org_id
+            )
+            
+            if success:
+                return jsonify({
+                    "status": "ok",
+                    "message": "Integration initialized successfully"
+                })
+            else:
+                return jsonify({
+                    "status": "error",
+                    "message": "Failed to initialize integration"
+                }), 500
+        
+        # GitHub endpoints
+        @self.flask_app.route("/api/github/repos", methods=["GET"])
+        def github_repos():
+            return jsonify({
+                "status": "ok",
+                "repos": self.ui.get_github_repos()
+            })
+        
+        @self.flask_app.route("/api/github/repos/<repo_name>", methods=["GET"])
+        def github_repo(repo_name):
+            return jsonify({
+                "status": "ok",
+                "repo": self.ui.get_github_repo(repo_name)
+            })
+        
+        @self.flask_app.route("/api/github/repos/<repo_name>/files", methods=["GET"])
+        def github_repo_files(repo_name):
+            path = request.args.get("path", "")
+            
+            return jsonify({
+                "status": "ok",
+                "files": self.ui.get_github_repo_files(repo_name, path)
+            })
+        
+        @self.flask_app.route("/api/github/repos/<repo_name>/files/<path:file_path>", methods=["GET"])
+        def github_file_content(repo_name, file_path):
+            return jsonify({
+                "status": "ok",
+                "content": self.ui.get_github_file_content(repo_name, file_path)
+            })
+        
+        @self.flask_app.route("/api/github/search", methods=["GET"])
+        def github_search():
+            query = request.args.get("query", "")
+            
+            if not query:
+                return jsonify({
+                    "status": "error",
+                    "message": "Missing query parameter"
+                }), 400
+            
+            return jsonify({
+                "status": "ok",
+                "results": self.ui.search_github_code(query)
+            })
+        
+        # Codegen endpoints
+        @self.flask_app.route("/api/codegen/is-code-related", methods=["POST"])
+        def is_code_related():
+            data = request.json
+            
+            task_description = data.get("task_description")
+            
+            if not task_description:
+                return jsonify({
+                    "status": "error",
+                    "message": "Missing task_description parameter"
+                }), 400
+            
+            return jsonify({
+                "status": "ok",
+                "is_code_related": self.ui.is_code_related_task(task_description)
+            })
+        
+        @self.flask_app.route("/api/codegen/delegate", methods=["POST"])
+        def delegate_to_codegen():
+            data = request.json
+            
+            task_description = data.get("task_description")
+            context = data.get("context", {})
+            
+            if not task_description:
+                return jsonify({
+                    "status": "error",
+                    "message": "Missing task_description parameter"
+                }), 400
+            
+            try:
+                result = self.ui.delegate_to_codegen(task_description, context)
+                
+                return jsonify({
+                    "status": "ok",
+                    "result": result
+                })
+            except Exception as e:
+                return jsonify({
+                    "status": "error",
+                    "message": str(e)
+                }), 500
+        
+        # Deployment endpoints
+        @self.flask_app.route("/api/codegen/deployment/is-deployment-task", methods=["POST"])
+        def is_deployment_task():
+            data = request.json
+            
+            task_description = data.get("task_description")
+            
+            if not task_description:
+                return jsonify({
+                    "status": "error",
+                    "message": "Missing task_description parameter"
+                }), 400
+            
+            return jsonify({
+                "status": "ok",
+                "is_deployment_task": self.ui.is_deployment_task(task_description)
+            })
+        
+        @self.flask_app.route("/api/codegen/deployment/create", methods=["POST"])
+        def create_deployment_task():
+            data = request.json
+            
+            task_description = data.get("task_description")
+            context = data.get("context", {})
+            
+            if not task_description:
+                return jsonify({
+                    "status": "error",
+                    "message": "Missing task_description parameter"
+                }), 400
+            
+            try:
+                task_id = self.ui.create_deployment_task(task_description, context)
+                
+                return jsonify({
+                    "status": "ok",
+                    "task_id": task_id
+                })
+            except Exception as e:
+                return jsonify({
+                    "status": "error",
+                    "message": str(e)
+                }), 500
+        
+        @self.flask_app.route("/api/codegen/deployment/delegate", methods=["POST"])
+        def delegate_deployment_task():
+            data = request.json
+            
+            task_id = data.get("task_id")
+            
+            if not task_id:
+                return jsonify({
+                    "status": "error",
+                    "message": "Missing task_id parameter"
+                }), 400
+            
+            try:
+                success = self.ui.delegate_deployment_task(task_id)
+                
+                if success:
+                    return jsonify({
+                        "status": "ok",
+                        "message": "Task delegated successfully"
+                    })
+                else:
+                    return jsonify({
+                        "status": "error",
+                        "message": "Failed to delegate task"
+                    }), 500
+            except Exception as e:
+                return jsonify({
+                    "status": "error",
+                    "message": str(e)
+                }), 500
+        
+        @self.flask_app.route("/api/codegen/deployment/status", methods=["GET"])
+        def get_deployment_task_status():
+            task_id = request.args.get("task_id")
+            
+            if not task_id:
+                return jsonify({
+                    "status": "error",
+                    "message": "Missing task_id parameter"
+                }), 400
+            
+            try:
+                task_status = self.ui.get_deployment_task_status(task_id)
+                
+                return jsonify({
+                    "status": "ok",
+                    "task_status": task_status
+                })
+            except Exception as e:
+                return jsonify({
+                    "status": "error",
+                    "message": str(e)
+                }), 500
+        
+        @self.flask_app.route("/api/codegen/deployment/results", methods=["GET"])
+        def get_deployment_task_results():
+            task_id = request.args.get("task_id")
+            
+            if not task_id:
+                return jsonify({
+                    "status": "error",
+                    "message": "Missing task_id parameter"
+                }), 400
+            
+            try:
+                task_results = self.ui.get_deployment_task_results(task_id)
+                
+                return jsonify({
+                    "status": "ok",
+                    "task_results": task_results
+                })
+            except Exception as e:
+                return jsonify({
+                    "status": "error",
+                    "message": str(e)
+                }), 500
+        
+        @self.flask_app.route("/api/codegen/deployment/report", methods=["GET"])
+        def generate_deployment_report():
+            task_id = request.args.get("task_id")
+            
+            if not task_id:
+                return jsonify({
+                    "status": "error",
+                    "message": "Missing task_id parameter"
+                }), 400
+            
+            try:
+                report = self.ui.generate_deployment_report(task_id)
+                
+                return jsonify({
+                    "status": "ok",
+                    "report": report
+                })
+            except Exception as e:
+                return jsonify({
+                    "status": "error",
+                    "message": str(e)
+                }), 500
+        
+        @self.flask_app.route("/api/codegen/deployment/add-to-memory", methods=["POST"])
+        def add_deployment_to_memory():
+            data = request.json
+            
+            task_id = data.get("task_id")
+            planner_id = data.get("planner_id")
+            
+            if not task_id or not planner_id:
+                return jsonify({
+                    "status": "error",
+                    "message": "Missing task_id or planner_id parameter"
+                }), 400
+            
+            try:
+                success = self.ui.add_deployment_to_memory(task_id, planner_id)
+                
+                if success:
+                    return jsonify({
+                        "status": "ok",
+                        "message": "Task added to memory successfully"
+                    })
+                else:
+                    return jsonify({
+                        "status": "error",
+                        "message": "Failed to add task to memory"
+                    }), 500
+            except Exception as e:
+                return jsonify({
+                    "status": "error",
+                    "message": str(e)
+                }), 500
+        
+        @self.flask_app.route("/api/codegen/deployment/cancel", methods=["POST"])
+        def cancel_deployment_task():
+            data = request.json
+            
+            task_id = data.get("task_id")
+            
+            if not task_id:
+                return jsonify({
+                    "status": "error",
+                    "message": "Missing task_id parameter"
+                }), 400
+            
+            try:
+                success = self.ui.cancel_deployment_task(task_id)
+                
+                if success:
+                    return jsonify({
+                        "status": "ok",
+                        "message": "Task cancelled successfully"
+                    })
+                else:
+                    return jsonify({
+                        "status": "error",
+                        "message": "Failed to cancel task"
+                    }), 500
+            except Exception as e:
+                return jsonify({
+                    "status": "error",
+                    "message": str(e)
+                }), 500
+        
+        @self.flask_app.route("/api/codegen/deployment/list", methods=["GET"])
+        def list_deployment_tasks():
+            try:
+                tasks = self.ui.list_deployment_tasks()
+                
+                return jsonify({
+                    "status": "ok",
+                    "tasks": tasks
+                })
+            except Exception as e:
+                return jsonify({
+                    "status": "error",
+                    "message": str(e)
+                }), 500
     
-    Args:
-        host: Host to bind the server to
-        port: Port to bind the server to
-    """
-    uvicorn.run(app, host=host, port=port)
+    def run(self) -> None:
+        """
+        Run the server
+        """
+        self.flask_app.run(host=self.host, port=self.port, debug=False)
 
-if __name__ == "__main__":
-    run_server()

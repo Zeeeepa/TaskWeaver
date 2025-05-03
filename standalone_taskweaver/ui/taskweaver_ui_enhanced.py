@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 """
-Enhanced TaskWeaver UI class with multithreaded execution support
+Enhanced TaskWeaver UI class with Codegen integration for deployment tasks
 """
 
 import os
 import json
 import logging
-import threading
-import asyncio
-import datetime
 from typing import Dict, List, Optional, Any, Union, Tuple
 
 from injector import inject
@@ -16,11 +13,11 @@ from injector import inject
 from standalone_taskweaver.app.app import TaskWeaverApp
 from standalone_taskweaver.config.config_mgt import AppConfigSource
 from standalone_taskweaver.logging import TelemetryLogger
-from standalone_taskweaver.memory import Memory
-from standalone_taskweaver.codegen_agent.codegen_agent import CodegenAgent
-from standalone_taskweaver.codegen_agent.requirements_manager import RequirementsManager
-from standalone_taskweaver.codegen_agent.concurrent_context_manager import ConcurrentContextManager
-from standalone_taskweaver.codegen_agent.concurrent_execution import ConcurrentExecutionEngine
+from standalone_taskweaver.codegen_agent.integration import CodegenIntegration
+from standalone_taskweaver.codegen_agent.bidirectional_context import BidirectionalContext
+from standalone_taskweaver.codegen_agent.advanced_api import CodegenAdvancedAPI
+from standalone_taskweaver.codegen_agent.planner_integration import CodegenPlannerIntegration
+from standalone_taskweaver.codegen_agent.weaver_integration import WeaverCodegenIntegration
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -28,7 +25,7 @@ logger = logging.getLogger("taskweaver-ui-enhanced")
 
 class TaskWeaverUIEnhanced:
     """
-    Enhanced TaskWeaver UI class with multithreaded execution support
+    Enhanced TaskWeaver UI class with Codegen integration for deployment tasks
     """
     
     @inject
@@ -42,249 +39,330 @@ class TaskWeaverUIEnhanced:
         self.config = config
         self.logger = logger
         
-        # Initialize memory
-        self.memory = Memory()
-        
         # Initialize components
-        self.requirements_manager = RequirementsManager(app, config, logger)
-        self.context_manager = ConcurrentContextManager(app, config, logger, self.memory)
-        self.execution_engine = ConcurrentExecutionEngine(app, config, logger, self.context_manager)
+        self.codegen_integration = CodegenIntegration(app, config, logger)
+        self.context_manager = BidirectionalContext(app, config, logger, None)
+        self.advanced_api = None
+        self.planner_integration = None
+        self.weaver_integration = None
         
-        # Initialize state
-        self.chat_history = []
-        self.project_context = {
-            "name": "",
-            "description": "",
-            "github_repo": ""
-        }
-        self.codegen_agent = None
-        self.is_executing = False
-    
-    def get_current_time_str(self) -> str:
-        """
-        Get the current time as a string
+        # Initialize context manager
+        self.context_manager.initialize()
         
-        Returns:
-            str: Current time in ISO format
+    def initialize_integration(self, 
+                              github_token: str,
+                              codegen_token: str,
+                              ngrok_token: str,
+                              codegen_org_id: str) -> bool:
         """
-        return datetime.datetime.now().isoformat()
-        
-    def initialize_agent(self, codegen_token: str) -> bool:
-        """
-        Initialize the Codegen agent with the provided token
+        Initialize Codegen integration with API credentials
         
         Args:
+            github_token: GitHub API token
             codegen_token: Codegen API token
+            ngrok_token: ngrok API token
+            codegen_org_id: Codegen organization ID
             
         Returns:
             bool: True if initialization was successful, False otherwise
         """
-        self.codegen_agent = CodegenAgent(
-            app, 
-            config, 
-            logger, 
-            requirements_manager=self.requirements_manager,
-            context_manager=self.context_manager,
-            execution_engine=self.execution_engine,
-        )
-        return self.codegen_agent.initialize(codegen_token)
-    
-    def add_message(self, role: str, content: str) -> None:
-        """
-        Add a message to the chat history
-        
-        Args:
-            role: Role of the message sender (user or assistant)
-            content: Content of the message
-        """
-        self.chat_history.append({
-            "role": role,
-            "content": content,
-            "timestamp": self.get_current_time_str()
-        })
-        
-        # If this is a user message, update requirements
-        if role == "user":
-            self._update_requirements_from_chat()
-    
-    def _update_requirements_from_chat(self) -> None:
-        """
-        Update requirements based on the chat history
-        """
-        # Extract requirements from chat history
-        requirements_text = ""
-        for message in self.chat_history:
-            if message["role"] == "user":
-                requirements_text += message["content"] + "\n\n"
-        
-        self.requirements_text = requirements_text
-    
-    def set_project_context(
-        self, 
-        project_name: str, 
-        project_description: str
-    ) -> None:
-        """
-        Set the project context
-        
-        Args:
-            project_name: Name of the project
-            project_description: Description of the project
-        """
-        self.project_context["name"] = project_name
-        self.project_context["description"] = project_description
-        self.project_context["github_repo"] = ""
-        
-        # Update Codegen agent context
-        if self.requirements_text:
-            self.codegen_agent.set_project_context(
-                project_name=project_name,
-                project_description=project_description,
-                requirements_text=self.requirements_text
+        try:
+            # Initialize Codegen integration
+            success = self.codegen_integration.initialize(
+                github_token=github_token,
+                codegen_token=codegen_token,
+                ngrok_token=ngrok_token,
+                codegen_org_id=codegen_org_id
             )
-    
-    def get_requirements(self) -> Dict[str, Any]:
-        """
-        Get the current requirements
-        
-        Returns:
-            Dict[str, Any]: Current requirements
-        """
-        return {
-            "text": self.requirements_text,
-            "tasks": self.requirements_manager.get_atomic_tasks_dict(),
-            "dependency_graph": self.requirements_manager.get_dependency_graph_dict()
-        }
-    
-    def execute_tasks(self, max_concurrent_tasks: int = 3) -> None:
-        """
-        Execute tasks based on the requirements
-        
-        Args:
-            max_concurrent_tasks: Maximum number of concurrent tasks to execute
-        """
-        if self.is_executing:
-            logger.warning("Tasks are already being executed")
-            return
-        
-        self.is_executing = True
-        
-        # Start execution in a separate thread
-        self.execution_thread = threading.Thread(
-            target=self._execute_tasks_thread,
-            args=(max_concurrent_tasks,)
-        )
-        self.execution_thread.daemon = True
-        self.execution_thread.start()
-    
-    def _execute_tasks_thread(self, max_concurrent_tasks: int) -> None:
-        """
-        Thread function for executing tasks
-        
-        Args:
-            max_concurrent_tasks: Maximum number of concurrent tasks to execute
-        """
-        try:
-            # Execute tasks
-            results = self.codegen_agent.execute_tasks(max_concurrent_tasks)
             
-            # Store results
-            self.execution_results = results
+            if success:
+                # Initialize advanced API
+                self.advanced_api = CodegenAdvancedAPI(
+                    self.app,
+                    self.config,
+                    self.logger,
+                    self.codegen_integration,
+                    self.context_manager
+                )
+                
+                # Initialize planner integration
+                self.planner_integration = CodegenPlannerIntegration(
+                    self.app,
+                    self.config,
+                    self.logger,
+                    self.codegen_integration
+                )
+                
+                # Initialize weaver integration
+                self.weaver_integration = WeaverCodegenIntegration(
+                    self.app,
+                    self.config,
+                    self.logger,
+                    self.codegen_integration
+                )
+            
+            return success
         except Exception as e:
-            logger.error(f"Error executing tasks: {str(e)}")
-        finally:
-            self.is_executing = False
+            self.logger.error(f"Error initializing Codegen integration: {str(e)}")
+            return False
     
-    async def execute_tasks_async(self, max_concurrent_tasks: int = 3) -> Dict[str, Any]:
+    def is_deployment_task(self, task_description: str) -> bool:
         """
-        Execute tasks asynchronously based on the requirements
+        Determine if a task is deployment-related
         
         Args:
-            max_concurrent_tasks: Maximum number of concurrent tasks to execute
+            task_description: Task description
             
         Returns:
-            Dict[str, Any]: Results of the task execution
+            bool: True if the task is deployment-related, False otherwise
         """
-        if self.is_executing:
-            logger.warning("Tasks are already being executed")
-            return {"error": "Tasks are already being executed"}
-        
-        self.is_executing = True
-        
-        try:
-            # Execute tasks asynchronously
-            results = await self.codegen_agent.execute_tasks_async(max_concurrent_tasks)
-            
-            # Store results
-            self.execution_results = results
-            
-            return results
-        except Exception as e:
-            logger.error(f"Error executing tasks asynchronously: {str(e)}")
-            return {"error": str(e)}
-        finally:
-            self.is_executing = False
-    
-    def get_execution_status(self) -> Dict[str, Any]:
-        """
-        Get the status of task execution
-        
-        Returns:
-            Dict[str, Any]: Status of task execution
-        """
-        agent_status = self.codegen_agent.get_status()
-        
-        return {
-            "is_executing": self.is_executing,
-            "agent_status": agent_status,
-            "results": self.execution_results
-        }
-    
-    def cancel_execution(self) -> bool:
-        """
-        Cancel the current task execution
-        
-        Returns:
-            bool: True if cancellation was successful, False otherwise
-        """
-        if not self.is_executing:
-            logger.warning("No tasks are being executed")
+        if not self.weaver_integration:
             return False
         
-        # Cancel tasks
-        result = self.codegen_agent.cancel_all_tasks()
-        
-        # Update status
-        if result:
-            self.is_executing = False
-        
-        return result
+        return self.weaver_integration.is_deployment_task(task_description)
     
-    def get_chat_history(self) -> List[Dict[str, Any]]:
+    def create_deployment_task(self, task_description: str, context: Dict[str, Any] = None) -> str:
         """
-        Get the chat history
-        
-        Returns:
-            List[Dict[str, Any]]: Chat history
-        """
-        return self.chat_history
-    
-    def clear_chat_history(self) -> None:
-        """
-        Clear the chat history
-        """
-        self.chat_history = []
-        self.requirements_text = None
-        
-    def set_github_repository(self, repo_name: str) -> None:
-        """
-        Set the GitHub repository for the project
+        Create a deployment task
         
         Args:
-            repo_name: Name of the GitHub repository
+            task_description: Task description
+            context: Optional context for the task
+            
+        Returns:
+            str: Task ID
         """
-        self.project_context["github_repo"] = repo_name
+        if not self.weaver_integration:
+            raise ValueError("Weaver integration not initialized")
         
-        # Update Codegen agent context if available
-        if self.codegen_agent and hasattr(self.codegen_agent, 'set_github_repository'):
-            self.codegen_agent.set_github_repository(repo_name)
+        return self.weaver_integration.create_deployment_task(task_description, context)
+    
+    def delegate_deployment_task(self, task_id: str) -> bool:
+        """
+        Delegate a deployment task to Codegen
+        
+        Args:
+            task_id: Task ID
+            
+        Returns:
+            bool: True if the task was delegated successfully, False otherwise
+        """
+        if not self.weaver_integration:
+            raise ValueError("Weaver integration not initialized")
+        
+        return self.weaver_integration.delegate_to_codegen(task_id)
+    
+    def get_deployment_task_status(self, task_id: str) -> Dict[str, Any]:
+        """
+        Get the status of a deployment task
+        
+        Args:
+            task_id: Task ID
+            
+        Returns:
+            Dict[str, Any]: Task status
+        """
+        if not self.weaver_integration:
+            raise ValueError("Weaver integration not initialized")
+        
+        return self.weaver_integration.get_deployment_task_status(task_id)
+    
+    def get_deployment_task_results(self, task_id: str) -> Dict[str, Any]:
+        """
+        Get the results of a deployment task
+        
+        Args:
+            task_id: Task ID
+            
+        Returns:
+            Dict[str, Any]: Task results
+        """
+        if not self.weaver_integration:
+            raise ValueError("Weaver integration not initialized")
+        
+        return self.weaver_integration.get_deployment_task_results(task_id)
+    
+    def generate_deployment_report(self, task_id: str) -> Dict[str, Any]:
+        """
+        Generate a report for a deployment task
+        
+        Args:
+            task_id: Task ID
+            
+        Returns:
+            Dict[str, Any]: Deployment report
+        """
+        if not self.weaver_integration:
+            raise ValueError("Weaver integration not initialized")
+        
+        return self.weaver_integration.generate_deployment_report(task_id)
+    
+    def add_deployment_to_memory(self, task_id: str, planner_id: str) -> bool:
+        """
+        Add deployment task results to TaskWeaver's memory
+        
+        Args:
+            task_id: Task ID
+            planner_id: Planner ID
+            
+        Returns:
+            bool: True if the results were added successfully, False otherwise
+        """
+        if not self.weaver_integration:
+            raise ValueError("Weaver integration not initialized")
+        
+        planner = self.app.get_planner(planner_id)
+        
+        if not planner:
+            raise ValueError(f"Planner {planner_id} not found")
+        
+        return self.weaver_integration.add_to_memory(task_id, planner)
+    
+    def cancel_deployment_task(self, task_id: str) -> bool:
+        """
+        Cancel a deployment task
+        
+        Args:
+            task_id: Task ID
+            
+        Returns:
+            bool: True if the task was cancelled successfully, False otherwise
+        """
+        if not self.weaver_integration:
+            raise ValueError("Weaver integration not initialized")
+        
+        return self.weaver_integration.cancel_deployment_task(task_id)
+    
+    def list_deployment_tasks(self) -> List[Dict[str, Any]]:
+        """
+        List all deployment tasks
+        
+        Returns:
+            List[Dict[str, Any]]: List of deployment tasks
+        """
+        if not self.weaver_integration:
+            raise ValueError("Weaver integration not initialized")
+        
+        return self.weaver_integration.list_deployment_tasks()
+    
+    def get_integration_status(self) -> Dict[str, bool]:
+        """
+        Get the status of all integrations
+        
+        Returns:
+            Dict[str, bool]: Status of all integrations
+        """
+        return {
+            "codegen_integration": self.codegen_integration.is_initialized,
+            "context_manager": self.context_manager is not None,
+            "advanced_api": self.advanced_api is not None,
+            "planner_integration": self.planner_integration is not None,
+            "weaver_integration": self.weaver_integration is not None
+        }
+    
+    # Include other methods from the original TaskWeaverUI class
+    def get_github_repos(self) -> List[Dict[str, Any]]:
+        """
+        Get a list of GitHub repositories
+        
+        Returns:
+            List[Dict[str, Any]]: List of GitHub repositories
+        """
+        if not self.codegen_integration.is_initialized:
+            return []
+        
+        return self.codegen_integration.github_manager.get_repos()
+    
+    def get_github_repo(self, repo_name: str) -> Dict[str, Any]:
+        """
+        Get details of a GitHub repository
+        
+        Args:
+            repo_name: Repository name
+            
+        Returns:
+            Dict[str, Any]: Repository details
+        """
+        if not self.codegen_integration.is_initialized:
+            return {}
+        
+        return self.codegen_integration.github_manager.get_repo(repo_name)
+    
+    def get_github_repo_files(self, repo_name: str, path: str = "") -> List[Dict[str, Any]]:
+        """
+        Get files in a GitHub repository
+        
+        Args:
+            repo_name: Repository name
+            path: Path in the repository
+            
+        Returns:
+            List[Dict[str, Any]]: List of files
+        """
+        if not self.codegen_integration.is_initialized:
+            return []
+        
+        return self.codegen_integration.github_manager.get_repo_files(repo_name, path)
+    
+    def get_github_file_content(self, repo_name: str, path: str) -> str:
+        """
+        Get the content of a file in a GitHub repository
+        
+        Args:
+            repo_name: Repository name
+            path: Path to the file
+            
+        Returns:
+            str: File content
+        """
+        if not self.codegen_integration.is_initialized:
+            return ""
+        
+        return self.codegen_integration.github_manager.get_file_content(repo_name, path)
+    
+    def search_github_code(self, query: str) -> List[Dict[str, Any]]:
+        """
+        Search for code in GitHub repositories
+        
+        Args:
+            query: Search query
+            
+        Returns:
+            List[Dict[str, Any]]: Search results
+        """
+        if not self.codegen_integration.is_initialized:
+            return []
+        
+        return self.codegen_integration.github_manager.search_code(query)
+    
+    def is_code_related_task(self, task_description: str) -> bool:
+        """
+        Determine if a task is code-related
+        
+        Args:
+            task_description: Task description
+            
+        Returns:
+            bool: True if the task is code-related, False otherwise
+        """
+        if not self.planner_integration:
+            return False
+        
+        return self.planner_integration.is_code_related_task(task_description)
+    
+    def delegate_to_codegen(self, task_description: str, context: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        Delegate a task to Codegen
+        
+        Args:
+            task_description: Task description
+            context: Optional context for the task
+            
+        Returns:
+            Dict[str, Any]: Result of the task
+        """
+        if not self.planner_integration:
+            raise ValueError("Planner integration not initialized")
+        
+        return self.planner_integration.delegate_to_codegen(task_description, context)
+

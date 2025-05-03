@@ -1,54 +1,55 @@
 #!/usr/bin/env python3
 """
-Main entry point for Enhanced TaskWeaver UI
+Enhanced main entry point for TaskWeaver UI with Codegen integration
 """
 
 import os
 import sys
-import argparse
 import logging
-from typing import Dict, Optional
+import argparse
 
-from standalone_taskweaver.ui.server_enhanced import run_server
+from standalone_taskweaver.app.app import TaskWeaverApp
+from standalone_taskweaver.config.config_mgt import AppConfigSource
+from standalone_taskweaver.logging import TelemetryLogger
+from standalone_taskweaver.ui.server_enhanced import TaskWeaverServerEnhanced
+from standalone_taskweaver.ui.taskweaver_ui_enhanced import TaskWeaverUIEnhanced
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("taskweaver-ui-enhanced")
-
-def parse_args():
-    """
-    Parse command line arguments
-    """
-    parser = argparse.ArgumentParser(description="Enhanced TaskWeaver UI")
-    
-    parser.add_argument("--host", default="0.0.0.0", help="Host to bind the server to")
-    parser.add_argument("--port", type=int, default=8000, help="Port to bind the server to")
-    
-    return parser.parse_args()
+logger = logging.getLogger("taskweaver-main-enhanced")
 
 def main():
     """
-    Main entry point
+    Main entry point for TaskWeaver UI with Codegen integration
     """
-    print("=" * 80)
-    print("Enhanced TaskWeaver UI with Codegen Integration")
-    print("=" * 80)
+    parser = argparse.ArgumentParser(description="TaskWeaver UI with Codegen integration")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host to run the server on")
+    parser.add_argument("--port", type=int, default=5000, help="Port to run the server on")
+    parser.add_argument("--config", type=str, default=None, help="Path to config file")
     
-    # Parse command line arguments
-    args = parse_args()
+    args = parser.parse_args()
     
-    # Run the server
-    try:
-        print(f"Starting server on {args.host}:{args.port}")
-        run_server(host=args.host, port=args.port)
-    except KeyboardInterrupt:
-        print("\nStopping server...")
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return 1
+    # Create app
+    app = TaskWeaverApp()
     
-    return 0
+    # Create config
+    config = AppConfigSource()
+    
+    if args.config:
+        config.load_from_file(args.config)
+    
+    # Create logger
+    logger = TelemetryLogger()
+    
+    # Create UI
+    ui = TaskWeaverUIEnhanced(app, config, logger)
+    
+    # Create server
+    server = TaskWeaverServerEnhanced(app, config, logger, ui, args.host, args.port)
+    
+    # Run server
+    server.run()
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
 

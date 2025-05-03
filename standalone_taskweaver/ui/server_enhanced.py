@@ -1,13 +1,15 @@
+#!/usr/bin/env python3
 """
-Enhanced web server for TaskWeaver UI with Codegen agent integration
+Enhanced web server for TaskWeaver UI with multithreaded execution support
 """
 
 import os
 import json
 import logging
+import asyncio
 from typing import Dict, List, Optional, Any, Union
 
-from fastapi import FastAPI, HTTPException, Depends, Request, Form
+from fastapi import FastAPI, HTTPException, Depends, Request, Form, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -16,12 +18,12 @@ import uvicorn
 from injector import inject
 
 from standalone_taskweaver.app.app import TaskWeaverApp
+from standalone_taskweaver.app.session_manager import SessionManager
 from standalone_taskweaver.config.config_mgt import AppConfigSource
 from standalone_taskweaver.logging import TelemetryLogger
-from standalone_taskweaver.codegen_agent.integration import CodegenIntegration
-from standalone_taskweaver.codegen_agent.bidirectional_context import BidirectionalContext
-from standalone_taskweaver.codegen_agent.advanced_api import CodegenAdvancedAPI
+from standalone_taskweaver.module.tracing import Tracing
 from standalone_taskweaver.ui.taskweaver_ui_enhanced import TaskWeaverUIEnhanced
+from standalone_taskweaver.ui.security import api_key_auth, bearer_auth, require_auth
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -375,7 +377,7 @@ async def stop_workflow():
 # New weaver integration endpoints
 
 @app.post("/api/weaver/project-context")
-async def set_project_context(request: ProjectContextRequest):
+async def set_project_context(request: ProjectContextRequest, auth: bool = Depends(api_key_auth)):
     """
     Set the project context for the Codegen agent
     """
@@ -387,7 +389,7 @@ async def set_project_context(request: ProjectContextRequest):
     )
 
 @app.post("/api/weaver/deployment-steps")
-async def parse_deployment_steps(request: DeploymentPlanRequest):
+async def parse_deployment_steps(request: DeploymentPlanRequest, auth: bool = Depends(api_key_auth)):
     """
     Parse deployment steps from a deployment plan
     """
@@ -395,7 +397,7 @@ async def parse_deployment_steps(request: DeploymentPlanRequest):
     return ui.parse_deployment_steps(request.deployment_plan)
 
 @app.post("/api/weaver/execute-steps")
-async def execute_deployment_steps(request: ExecuteStepsRequest):
+async def execute_deployment_steps(request: ExecuteStepsRequest, auth: bool = Depends(api_key_auth)):
     """
     Execute deployment steps
     """
@@ -403,7 +405,7 @@ async def execute_deployment_steps(request: ExecuteStepsRequest):
     return ui.execute_deployment_steps(max_concurrent_steps=request.max_concurrent_steps)
 
 @app.post("/api/weaver/execute-step")
-async def execute_single_step(request: ExecuteSingleStepRequest):
+async def execute_single_step(request: ExecuteSingleStepRequest, auth: bool = Depends(api_key_auth)):
     """
     Execute a single deployment step
     """
@@ -415,7 +417,7 @@ async def execute_single_step(request: ExecuteSingleStepRequest):
     )
 
 @app.get("/api/weaver/step/{step_id}/status")
-async def get_step_status(step_id: str):
+async def get_step_status(step_id: str, auth: bool = Depends(api_key_auth)):
     """
     Get the status of a deployment step
     """
@@ -423,7 +425,7 @@ async def get_step_status(step_id: str):
     return ui.get_step_status(step_id)
 
 @app.get("/api/weaver/step/{step_id}/result")
-async def get_step_result(step_id: str):
+async def get_step_result(step_id: str, auth: bool = Depends(api_key_auth)):
     """
     Get the result of a deployment step
     """
@@ -431,7 +433,7 @@ async def get_step_result(step_id: str):
     return ui.get_step_result(step_id)
 
 @app.get("/api/weaver/steps/results")
-async def get_all_step_results():
+async def get_all_step_results(auth: bool = Depends(api_key_auth)):
     """
     Get all deployment step results
     """
@@ -439,7 +441,7 @@ async def get_all_step_results():
     return ui.get_all_step_results()
 
 @app.get("/api/weaver/status")
-async def get_weaver_status():
+async def get_weaver_status(auth: bool = Depends(api_key_auth)):
     """
     Get the status of the weaver integration
     """
@@ -447,7 +449,7 @@ async def get_weaver_status():
     return ui.get_weaver_status()
 
 @app.post("/api/weaver/cancel")
-async def cancel_all_steps():
+async def cancel_all_steps(auth: bool = Depends(api_key_auth)):
     """
     Cancel all running deployment steps
     """
@@ -462,4 +464,3 @@ def run_server(host: str = "0.0.0.0", port: int = 8000):
 
 if __name__ == "__main__":
     run_server()
-

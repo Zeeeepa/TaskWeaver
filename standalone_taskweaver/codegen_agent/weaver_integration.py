@@ -59,6 +59,9 @@ class CodegenWeaverIntegration:
         self.deployment_steps = []
         self.step_results = {}
         
+        # Maximum number of stored results to prevent memory leaks
+        self.max_stored_results = 100
+        
     def initialize(self, codegen_token: str) -> bool:
         """
         Initialize the Codegen agent with the provided token
@@ -74,7 +77,7 @@ class CodegenWeaverIntegration:
             self.is_initialized = success
             return success
         except Exception as e:
-            logger.error(f"Failed to initialize Codegen agent: {str(e)}")
+            logger.error(f"Failed to initialize Codegen agent: {str(e)}", exc_info=True)
             return False
     
     def set_project_context(
@@ -93,6 +96,10 @@ class CodegenWeaverIntegration:
         """
         if not self.is_initialized:
             raise ValueError("Codegen agent not initialized. Call initialize() first.")
+            
+        # Add input validation
+        if not all([project_name, project_description, requirements_text]):
+            raise ValueError("Project name, description, and requirements text must be provided.")
             
         self.codegen_agent.set_project_context(
             project_name=project_name,
@@ -196,8 +203,8 @@ class CodegenWeaverIntegration:
         # Execute steps
         results = self.codegen_agent.execute_tasks(max_concurrent_tasks=max_concurrent_steps)
         
-        # Store results
-        self.step_results = results
+        # Store results with memory management
+        self._manage_results_storage(results)
         
         return results
         
@@ -220,17 +227,41 @@ class CodegenWeaverIntegration:
         # Execute steps asynchronously
         results = await self.codegen_agent.execute_tasks_async(max_concurrent_tasks=max_concurrent_steps)
         
-        # Store results
-        self.step_results = results
+        # Store results with memory management
+        self._manage_results_storage(results)
         
         return results
         
-    def execute_single_step(self, step: AtomicTask) -> TaskResult:
+    def _manage_results_storage(self, new_results: Dict[str, Any]) -> None:
+        """
+        Manage the storage of results to prevent memory leaks
+        
+        Args:
+            new_results: New results to store
+        """
+        # Add new results to storage
+        self.step_results.update(new_results)
+        
+        # If we have too many results, remove the oldest ones
+        if len(self.step_results) > self.max_stored_results:
+            # Sort keys by timestamp if available, otherwise just take the first ones
+            keys_to_remove = sorted(
+                self.step_results.keys(),
+                key=lambda k: self.step_results[k].get("timestamp", 0) if isinstance(self.step_results[k], dict) else 0
+            )[:len(self.step_results) - self.max_stored_results]
+            
+            # Remove oldest results
+            for key in keys_to_remove:
+                del self.step_results[key]
+        
+    def execute_single_step(self, step_id: str, step_title: str, step_description: str) -> TaskResult:
         """
         Execute a single deployment step
         
         Args:
-            step: Deployment step to execute
+            step_id: ID of the step
+            step_title: Title of the step
+            step_description: Description of the step
             
         Returns:
             TaskResult: Result of the step execution
@@ -238,11 +269,31 @@ class CodegenWeaverIntegration:
         if not self.is_initialized:
             raise ValueError("Codegen agent not initialized. Call initialize() first.")
             
+        # Input validation
+        if not all([step_id, step_title, step_description]):
+            raise ValueError("Step ID, title, and description must be provided.")
+            
+        # Create a step
+        step = AtomicTask(
+            id=step_id,
+            title=step_title,
+            description=step_description,
+            priority=1,
+            dependencies=[],
+            phase=1,
+            status="pending",
+            tags=["deployment"],
+            estimated_time=0,
+            assignee=None,
+            interface_definition=False,
+        )
+            
         # Execute step
         result = self.codegen_agent.execute_single_task(step)
         
-        # Store result
-        self.step_results[step.id] = result
+        # Store result with memory management
+        self.step_results[step_id] = result
+        self._manage_results_storage({step_id: result})
         
         return result
         
@@ -299,4 +350,3 @@ class CodegenWeaverIntegration:
             bool: True if cancellation was successful, False otherwise
         """
         return self.codegen_agent.cancel_all_tasks()
-

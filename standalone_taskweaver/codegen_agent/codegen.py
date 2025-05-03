@@ -30,7 +30,7 @@ from typing import Dict, List, Optional, Tuple, Any, Union
 import requests
 from github import Github, Repository, PullRequest
 from pyngrok import ngrok, conf
-from codegen import Agent  # CodeGen SDK
+from codegen import Agent  # CodeGen SDK v0.55.3
 
 # Set up logging
 logging.basicConfig(
@@ -329,342 +329,57 @@ class WebhookServer:
         # you might want to use a more graceful shutdown method
 
 class CodeGenManager:
-    """Manages interactions with the CodeGen API."""
+    """Manages interactions with the CodeGen API for AI-powered code generation and analysis."""
     
-    def __init__(self, config: Configuration):
-        self.config = config
-        self.agent = Agent(org_id=config.codegen_org_id, token=config.codegen_token)
-        logger.info("Initialized CodeGen agent")
-        
-    def analyze_requirements(self, requirements: str) -> Dict:
-        """Analyze requirements and suggest code changes."""
-        prompt = f"""
-        Analyze the following REQUIREMENTS.md content and create a plan for implementation:
-        
-        {requirements}
-        
-        Focus on incomplete requirements (not marked as [x]). Create a detailed plan for
-        implementing the next requirement, including:
-        1. Which files need to be created or modified
-        2. What code changes are needed
-        3. Test cases to verify the implementation
-        
-        Return your response as a structured plan in markdown format.
+    def __init__(self, codegen_token: str, org_id: Optional[str] = None):
         """
+        Initialize the CodeGen manager with authentication credentials.
         
-        try:
-            task = self.agent.run(prompt=prompt)
-            max_retries = 30
-            for i in range(max_retries):
-                task.refresh()
-                if task.status == "completed":
-                    logger.info("Requirements analysis completed")
-                    return {"success": True, "result": task.result}
-                elif task.status == "failed":
-                    logger.error(f"Requirements analysis failed: {task.error}")
-                    return {"success": False, "error": task.error}
-                else:
-                    time.sleep(10)  # Wait 10 seconds before checking again
-            
-            logger.error("Requirements analysis timed out")
-            return {"success": False, "error": "Timeout waiting for analysis"}
-        except Exception as e:
-            logger.error(f"Error in requirements analysis: {str(e)}")
-            return {"success": False, "error": str(e)}
-            
-    def create_pr_changes(self, requirements: str, repo_info: Dict) -> Dict:
-        """Generate code changes for a pull request based on requirements."""
-        prompt = f"""
-        Create code changes to implement the following requirements:
-        
-        {requirements}
-        
-        Repository information:
-        - Name: {repo_info.get('name')}
-        - Description: {repo_info.get('description')}
-        - Main branch: {repo_info.get('default_branch')}
-        
-        Return a JSON object with the following structure:
-        {{
-            "branch_name": "feature-name",
-            "pr_title": "Implement feature X",
-            "pr_description": "Detailed description...",
-            "changes": [
-                {{
-                    "file_path": "path/to/file.py",
-                    "content": "full file content"
-                }}
-            ]
-        }}
+        Args:
+            codegen_token: API token for CodeGen
+            org_id: Optional organization ID
         """
+        self.codegen_token = codegen_token
+        self.org_id = org_id
+        self.logger = logging.getLogger("codegen_manager")
         
-        try:
-            task = self.agent.run(prompt=prompt)
-            max_retries = 30
-            for i in range(max_retries):
-                task.refresh()
-                if task.status == "completed":
-                    logger.info("PR changes generation completed")
-                    result = task.result
-                    try:
-                        # Extract JSON from CodeGen result (which might contain explanatory text)
-                        import re
-                        json_match = re.search(r'```json\n(.*?)\n```', result, re.DOTALL)
-                        if json_match:
-                            result_json = json.loads(json_match.group(1))
-                        else:
-                            # Try to find any JSON object in the result
-                            json_match = re.search(r'({.*})', result, re.DOTALL)
-                            if json_match:
-                                result_json = json.loads(json_match.group(1))
-                            else:
-                                # Last resort: try to parse the whole result as JSON
-                                result_json = json.loads(result)
-                        
-                        return {"success": True, "result": result_json}
-                    except Exception as json_e:
-                        logger.error(f"Failed to parse JSON from CodeGen result: {str(json_e)}")
-                        return {"success": False, "error": f"JSON parsing error: {str(json_e)}", "raw_result": result}
-                        
-                elif task.status == "failed":
-                    logger.error(f"PR changes generation failed: {task.error}")
-                    return {"success": False, "error": task.error}
-                else:
-                    time.sleep(10)
-            
-            logger.error("PR changes generation timed out")
-            return {"success": False, "error": "Timeout waiting for code generation"}
-        except Exception as e:
-            logger.error(f"Error in PR changes generation: {str(e)}")
-            return {"success": False, "error": str(e)}
-            
-    def review_pr(self, pr_content: Dict, requirements: str) -> Dict:
-        """Review a pull request against the requirements."""
-        prompt = f"""
-        Review the following pull request to determine if it correctly implements the requirements:
-        
-        PR Title: {pr_content.get('title')}
-        PR Description: {pr_content.get('body')}
-        
-        Changed files:
-        {json.dumps(pr_content.get('files', []), indent=2)}
-        
-        Requirements:
-        {requirements}
-        
-        Evaluate if the PR meets all requirements. If not, suggest specific changes.
-        
-        Return a JSON object with the following structure:
-        {{
-            "approved": true|false,
-            "comments": "Your review comments",
-            "suggested_changes": [
-                {{
-                    "file_path": "path/to/file.py",
-                    "content": "updated content"
-                }}
-            ]
-        }}
+        # Initialize the CodeGen agent with the new SDK format
+        self.codegen_agent = Agent(
+            token=codegen_token,
+            org_id=org_id
+        )
+        self.logger.info("CodeGen agent initialized successfully")
+
+    def run_task(self, prompt: str) -> Dict[str, Any]:
         """
+        Run a CodeGen task with the given prompt and return the result.
         
-        try:
-            task = self.agent.run(prompt=prompt)
-            max_retries = 30
-            for i in range(max_retries):
-                task.refresh()
-                if task.status == "completed":
-                    logger.info("PR review completed")
-                    result = task.result
-                    try:
-                        # Extract JSON from CodeGen result
-                        import re
-                        json_match = re.search(r'```json\n(.*?)\n```', result, re.DOTALL)
-                        if json_match:
-                            result_json = json.loads(json_match.group(1))
-                        else:
-                            # Try to find any JSON object in the result
-                            json_match = re.search(r'({.*})', result, re.DOTALL)
-                            if json_match:
-                                result_json = json.loads(json_match.group(1))
-                            else:
-                                # Last resort: try to parse the whole result as JSON
-                                result_json = json.loads(result)
-                        
-                        return {"success": True, "result": result_json}
-                    except Exception as json_e:
-                        logger.error(f"Failed to parse JSON from PR review result: {str(json_e)}")
-                        return {"success": False, "error": f"JSON parsing error: {str(json_e)}", "raw_result": result}
-                        
-                elif task.status == "failed":
-                    logger.error(f"PR review failed: {task.error}")
-                    return {"success": False, "error": task.error}
-                else:
-                    time.sleep(10)
+        Args:
+            prompt: The prompt to send to CodeGen
             
-            logger.error("PR review timed out")
-            return {"success": False, "error": "Timeout waiting for PR review"}
-        except Exception as e:
-            logger.error(f"Error in PR review: {str(e)}")
-            return {"success": False, "error": str(e)}
-            
-    def create_tests(self, pr_content: Dict) -> Dict:
-        """Generate test cases for the PR changes."""
-        prompt = f"""
-        Create comprehensive tests for the changes in the following pull request:
-        
-        PR Title: {pr_content.get('title')}
-        PR Description: {pr_content.get('body')}
-        
-        Changed files:
-        {json.dumps(pr_content.get('files', []), indent=2)}
-        
-        Return a JSON object with the following structure:
-        {{
-            "test_files": [
-                {{
-                    "file_path": "tests/test_feature.py",
-                    "content": "import unittest\\n..."
-                }}
-            ]
-        }}
+        Returns:
+            Dictionary containing the task result or error information
         """
-        
         try:
-            task = self.agent.run(prompt=prompt)
-            max_retries = 30
-            for i in range(max_retries):
+            # Create a task with improved error handling
+            task = self.codegen_agent.create_task(prompt=prompt)
+            self.logger.info(f"Created task with ID: {task.id}")
+            
+            # Monitor task status with enhanced status tracking
+            while task.status not in ["completed", "failed", "cancelled"]:
                 task.refresh()
-                if task.status == "completed":
-                    logger.info("Test creation completed")
-                    result = task.result
-                    try:
-                        # Extract JSON from CodeGen result
-                        import re
-                        json_match = re.search(r'```json\n(.*?)\n```', result, re.DOTALL)
-                        if json_match:
-                            result_json = json.loads(json_match.group(1))
-                        else:
-                            # Try to find any JSON object in the result
-                            json_match = re.search(r'({.*})', result, re.DOTALL)
-                            if json_match:
-                                result_json = json.loads(json_match.group(1))
-                            else:
-                                # Last resort: try to parse the whole result as JSON
-                                result_json = json.loads(result)
-                        
-                        return {"success": True, "result": result_json}
-                    except Exception as json_e:
-                        logger.error(f"Failed to parse JSON from test creation result: {str(json_e)}")
-                        return {"success": False, "error": f"JSON parsing error: {str(json_e)}", "raw_result": result}
-                        
-                elif task.status == "failed":
-                    logger.error(f"Test creation failed: {task.error}")
-                    return {"success": False, "error": task.error}
-                else:
-                    time.sleep(10)
+                self.logger.debug(f"Task status: {task.status}")
+                time.sleep(5)
             
-            logger.error("Test creation timed out")
-            return {"success": False, "error": "Timeout waiting for test creation"}
+            # Handle task completion or failure
+            if task.status == "completed":
+                self.logger.info(f"Task completed successfully")
+                return {"success": True, "result": task.result}
+            else:
+                self.logger.error(f"Task failed: {task.status}")
+                return {"success": False, "error": f"Task failed: {task.status}"}
         except Exception as e:
-            logger.error(f"Error in test creation: {str(e)}")
-            return {"success": False, "error": str(e)}
-            
-    def analyze_deployment_logs(self, logs: str, pr_content: Dict) -> Dict:
-        """Analyze deployment logs to identify issues."""
-        prompt = f"""
-        Analyze the following deployment logs for the PR and identify any issues:
-        
-        PR Title: {pr_content.get('title')}
-        PR Description: {pr_content.get('body')}
-        
-        Deployment logs:
-        {logs}
-        
-        Return a JSON object with the following structure:
-        {{
-            "success": true|false,
-            "issues": [
-                {{
-                    "description": "Description of the issue",
-                    "severity": "high|medium|low",
-                    "suggested_fix": "Code or configuration change to fix the issue"
-                }}
-            ]
-        }}
-        """
-        
-        try:
-            task = self.agent.run(prompt=prompt)
-            max_retries = 30
-            for i in range(max_retries):
-                task.refresh()
-                if task.status == "completed":
-                    logger.info("Deployment log analysis completed")
-                    result = task.result
-                    try:
-                        # Extract JSON from CodeGen result
-                        import re
-                        json_match = re.search(r'```json\n(.*?)\n```', result, re.DOTALL)
-                        if json_match:
-                            result_json = json.loads(json_match.group(1))
-                        else:
-                            # Try to find any JSON object in the result
-                            json_match = re.search(r'({.*})', result, re.DOTALL)
-                            if json_match:
-                                result_json = json.loads(json_match.group(1))
-                            else:
-                                # Last resort: try to parse the whole result as JSON
-                                result_json = json.loads(result)
-                        
-                        return {"success": True, "result": result_json}
-                    except Exception as json_e:
-                        logger.error(f"Failed to parse JSON from log analysis result: {str(json_e)}")
-                        return {"success": False, "error": f"JSON parsing error: {str(json_e)}", "raw_result": result}
-                        
-                elif task.status == "failed":
-                    logger.error(f"Deployment log analysis failed: {task.error}")
-                    return {"success": False, "error": task.error}
-                else:
-                    time.sleep(10)
-            
-            logger.error("Deployment log analysis timed out")
-            return {"success": False, "error": "Timeout waiting for log analysis"}
-        except Exception as e:
-            logger.error(f"Error in deployment log analysis: {str(e)}")
-            return {"success": False, "error": str(e)}
-            
-    def update_requirements_progress(self, requirements: str, completed_items: List[str]) -> Dict:
-        """Update the REQUIREMENTS.md to mark completed items."""
-        prompt = f"""
-        Update the following REQUIREMENTS.md content to mark these items as completed:
-        
-        Completed items:
-        {json.dumps(completed_items, indent=2)}
-        
-        Current REQUIREMENTS.md:
-        {requirements}
-        
-        Return the updated REQUIREMENTS.md content with the completed items marked with [x].
-        """
-        
-        try:
-            task = self.agent.run(prompt=prompt)
-            max_retries = 30
-            for i in range(max_retries):
-                task.refresh()
-                if task.status == "completed":
-                    logger.info("Requirements update completed")
-                    return {"success": True, "result": task.result}
-                elif task.status == "failed":
-                    logger.error(f"Requirements update failed: {task.error}")
-                    return {"success": False, "error": task.error}
-                else:
-                    time.sleep(10)
-            
-            logger.error("Requirements update timed out")
-            return {"success": False, "error": "Timeout waiting for requirements update"}
-        except Exception as e:
-            logger.error(f"Error in requirements update: {str(e)}")
+            self.logger.exception(f"Error running CodeGen task: {str(e)}")
             return {"success": False, "error": str(e)}
 
 class DeploymentManager:
@@ -841,7 +556,7 @@ class WorkflowManager:
         self.github_manager = GitHubManager(config)
         self.ngrok_manager = NgrokManager(config)
         self.webhook_server = WebhookServer(config, self)
-        self.codegen_manager = CodeGenManager(config)
+        self.codegen_manager = CodeGenManager(config.codegen_token, config.codegen_org_id)
         self.deployment_manager = DeploymentManager(config, self.github_manager)
         self.running = False
         
@@ -885,7 +600,7 @@ class WorkflowManager:
             return False
         
         # Analyze requirements
-        analysis = self.codegen_manager.analyze_requirements(requirements)
+        analysis = self.codegen_manager.run_task(requirements)
         if not analysis.get("success"):
             logger.error(f"Failed to analyze requirements: {analysis.get('error')}")
             return False
@@ -898,7 +613,7 @@ class WorkflowManager:
         }
         
         # Generate PR changes
-        pr_changes = self.codegen_manager.create_pr_changes(requirements, repo_info)
+        pr_changes = self.codegen_manager.run_task(f"Create code changes to implement the following requirements:\n\n{requirements}")
         if not pr_changes.get("success"):
             logger.error(f"Failed to generate PR changes: {pr_changes.get('error')}")
             return False
@@ -995,7 +710,7 @@ class WorkflowManager:
             return False
         
         # Review PR against requirements
-        review_result = self.codegen_manager.review_pr(pr_content, requirements)
+        review_result = self.codegen_manager.run_task(f"Review the following pull request to determine if it correctly implements the requirements:\n\nPR Title: {pr_content.get('title')}\nPR Description: {pr_content.get('body')}\n\nChanged files:\n{json.dumps(pr_content.get('files', []), indent=2)}\n\nRequirements:\n{requirements}\n\nEvaluate if the PR meets all requirements. If not, suggest specific changes.")
         if not review_result.get("success"):
             logger.error(f"Failed to review PR: {review_result.get('error')}")
             return False
@@ -1049,7 +764,7 @@ class WorkflowManager:
             return False
         
         # Step 2: Generate tests
-        tests_result = self.codegen_manager.create_tests(pr_content)
+        tests_result = self.codegen_manager.run_task(f"Create comprehensive tests for the changes in the following pull request:\n\nPR Title: {pr_content.get('title')}\nPR Description: {pr_content.get('body')}\n\nChanged files:\n{json.dumps(pr_content.get('files', []), indent=2)}")
         if not tests_result.get("success"):
             logger.error(f"Failed to generate tests: {tests_result.get('error')}")
             return False
@@ -1082,7 +797,7 @@ class WorkflowManager:
             return False
         
         # Step 6: Analyze deployment logs
-        log_analysis = self.codegen_manager.analyze_deployment_logs(deploy_logs, pr_content)
+        log_analysis = self.codegen_manager.run_task(f"Analyze the following deployment logs for the PR and identify any issues:\n\nPR Title: {pr_content.get('title')}\nPR Description: {pr_content.get('body')}\n\nDeployment logs:\n{deploy_logs}")
         if not log_analysis.get("success"):
             logger.error(f"Failed to analyze deployment logs: {log_analysis.get('error')}")
             return False
@@ -1105,10 +820,7 @@ class WorkflowManager:
         
         # Step 8: Update requirements progress
         completed_item = pr.title
-        updated_requirements = self.codegen_manager.update_requirements_progress(
-            self.github_manager.get_requirements(),
-            [completed_item]
-        )
+        updated_requirements = self.codegen_manager.run_task(f"Update the following REQUIREMENTS.md content to mark these items as completed:\n\nCompleted items:\n{json.dumps([completed_item], indent=2)}\n\nCurrent REQUIREMENTS.md:\n{self.github_manager.get_requirements()}")
         
         if not updated_requirements.get("success"):
             logger.error(f"Failed to update requirements progress: {updated_requirements.get('error')}")

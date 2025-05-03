@@ -10,6 +10,7 @@ import os
 import sys
 import json
 import logging
+import time
 from typing import Dict, List, Optional, Any, Union, Tuple
 
 from injector import inject
@@ -25,411 +26,189 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("codegen-advanced-api")
 
 class CodegenAdvancedAPI:
-    """
-    Advanced API for Codegen integration
-    """
+    """Advanced API for Codegen with specialized methods for code generation, analysis, refactoring, and testing."""
     
-    @inject
-    def __init__(
-        self,
-        app: TaskWeaverApp,
-        config: AppConfigSource,
-        logger: TelemetryLogger,
-        codegen_integration: CodegenIntegration,
-        context_manager: BidirectionalContext,
-    ) -> None:
-        self.app = app
-        self.config = config
-        self.logger = logger
-        self.codegen_integration = codegen_integration
-        self.context_manager = context_manager
-    
-    def generate_code(self, prompt: str, language: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def __init__(self, codegen_token: str, org_id: Optional[str] = None):
         """
-        Generate code using Codegen
+        Initialize the Codegen advanced API with authentication credentials.
         
         Args:
-            prompt: Prompt for code generation
-            language: Programming language
-            context: Optional context information
+            codegen_token: API token for Codegen
+            org_id: Optional organization ID
+        """
+        self.codegen_token = codegen_token
+        self.org_id = org_id
+        self.logger = logging.getLogger("codegen_advanced_api")
+        
+        # Initialize the Codegen agent with the new SDK format
+        self.codegen_agent = Agent(
+            token=codegen_token,
+            org_id=org_id
+        )
+        self.logger.info("Codegen agent initialized successfully")
+    
+    def run_codegen_task(self, prompt: str) -> Any:
+        """
+        Run a Codegen task with the given prompt.
+        
+        Args:
+            prompt: The prompt to send to Codegen
             
         Returns:
-            Dict[str, Any]: Generated code
+            The task object
         """
         try:
-            # Create a prompt for Codegen
-            codegen_prompt = self._create_code_generation_prompt(prompt, language, context)
-            
-            # Create a Codegen task
-            task_id = self.codegen_integration.create_codegen_task(codegen_prompt)
-            
-            if not task_id:
-                self.logger.error("Failed to create Codegen task for code generation")
-                return {"success": False, "error": "Failed to create Codegen task"}
-            
-            # Wait for the task to complete
-            result = self._wait_for_task_completion(task_id)
-            
-            # Extract code from the result
-            code = self._extract_code_from_result(result, language)
-            
-            return {
-                "success": True,
-                "code": code,
-                "task_id": task_id,
-                "result": result
-            }
+            task = self.codegen_agent.create_task(prompt=prompt)
+            self.logger.info(f"Created task with ID: {task.id}")
+            return task
         except Exception as e:
-            self.logger.error(f"Error generating code: {str(e)}")
-            return {"success": False, "error": str(e)}
+            self.logger.exception(f"Error creating Codegen task: {str(e)}")
+            raise
     
-    def _create_code_generation_prompt(self, prompt: str, language: str, context: Optional[Dict[str, Any]] = None) -> str:
+    def wait_for_task_completion(self, task: Any, timeout: int = 300) -> Dict[str, Any]:
         """
-        Create a prompt for code generation
+        Wait for a task to complete with timeout.
         
         Args:
-            prompt: Prompt for code generation
-            language: Programming language
-            context: Optional context information
-            
-        Returns:
-            str: Prompt for Codegen
-        """
-        # Get context information
-        if context is None:
-            context = self.context_manager.export_context_for_codegen()
-        
-        # Create a prompt template
-        prompt_template = f"""
-Generate code in {language} for the following task:
-
-{prompt}
-
-Context:
-{json.dumps(context, indent=2) if context else "No context provided"}
-
-Please provide only the code without any explanations or comments.
-"""
-        
-        return prompt_template
-    
-    def _extract_code_from_result(self, result: Dict[str, Any], language: str) -> str:
-        """
-        Extract code from the Codegen result
-        
-        Args:
-            result: Result of the Codegen task
-            language: Programming language
-            
-        Returns:
-            str: Extracted code
-        """
-        # Try to extract code from the result
-        codegen_result = result.get("result", {})
-        
-        # Check if result is a string (might be JSON)
-        if isinstance(codegen_result, str):
-            try:
-                codegen_result = json.loads(codegen_result)
-            except:
-                # If it's not JSON, it might be the code directly
-                return codegen_result
-        
-        # Try different possible locations for the code
-        if isinstance(codegen_result, dict):
-            # Check for code in the result
-            code = codegen_result.get("code")
-            if code:
-                return code
-            
-            # Check for files in the result
-            files = codegen_result.get("files", [])
-            if files and isinstance(files, list):
-                for file in files:
-                    if isinstance(file, dict) and file.get("language", "").lower() == language.lower():
-                        return file.get("content", "")
-        
-        # If we couldn't extract the code, return the entire result
-        return str(codegen_result)
-    
-    def analyze_code(self, code: str, language: str) -> Dict[str, Any]:
-        """
-        Analyze code using Codegen
-        
-        Args:
-            code: Code to analyze
-            language: Programming language
-            
-        Returns:
-            Dict[str, Any]: Analysis result
-        """
-        try:
-            # Create a prompt for Codegen
-            codegen_prompt = self._create_code_analysis_prompt(code, language)
-            
-            # Create a Codegen task
-            task_id = self.codegen_integration.create_codegen_task(codegen_prompt)
-            
-            if not task_id:
-                self.logger.error("Failed to create Codegen task for code analysis")
-                return {"success": False, "error": "Failed to create Codegen task"}
-            
-            # Wait for the task to complete
-            result = self._wait_for_task_completion(task_id)
-            
-            # Extract analysis from the result
-            analysis = self._extract_analysis_from_result(result)
-            
-            return {
-                "success": True,
-                "analysis": analysis,
-                "task_id": task_id,
-                "result": result
-            }
-        except Exception as e:
-            self.logger.error(f"Error analyzing code: {str(e)}")
-            return {"success": False, "error": str(e)}
-    
-    def _create_code_analysis_prompt(self, code: str, language: str) -> str:
-        """
-        Create a prompt for code analysis
-        
-        Args:
-            code: Code to analyze
-            language: Programming language
-            
-        Returns:
-            str: Prompt for Codegen
-        """
-        # Create a prompt template
-        prompt_template = f"""
-Analyze the following {language} code:
-
-```{language}
-{code}
-```
-
-Please provide a detailed analysis including:
-1. Code quality assessment
-2. Potential bugs or issues
-3. Performance considerations
-4. Security vulnerabilities
-5. Suggestions for improvement
-
-Format the analysis as JSON with the following structure:
-{{
-  "quality": "assessment of code quality",
-  "bugs": ["list of potential bugs"],
-  "performance": ["performance considerations"],
-  "security": ["security vulnerabilities"],
-  "suggestions": ["suggestions for improvement"]
-}}
-"""
-        
-        return prompt_template
-    
-    def _extract_analysis_from_result(self, result: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Extract analysis from the Codegen result
-        
-        Args:
-            result: Result of the Codegen task
-            
-        Returns:
-            Dict[str, Any]: Extracted analysis
-        """
-        # Try to extract analysis from the result
-        codegen_result = result.get("result", {})
-        
-        # Check if result is a string (might be JSON)
-        if isinstance(codegen_result, str):
-            try:
-                codegen_result = json.loads(codegen_result)
-                return codegen_result
-            except:
-                # If it's not JSON, return a simple analysis
-                return {
-                    "analysis": codegen_result
-                }
-        
-        # If result is already a dict, return it
-        if isinstance(codegen_result, dict):
-            return codegen_result
-        
-        # If we couldn't extract the analysis, return the entire result
-        return {
-            "analysis": str(codegen_result)
-        }
-    
-    def refactor_code(self, code: str, language: str, instructions: str) -> Dict[str, Any]:
-        """
-        Refactor code using Codegen
-        
-        Args:
-            code: Code to refactor
-            language: Programming language
-            instructions: Refactoring instructions
-            
-        Returns:
-            Dict[str, Any]: Refactored code
-        """
-        try:
-            # Create a prompt for Codegen
-            codegen_prompt = self._create_code_refactoring_prompt(code, language, instructions)
-            
-            # Create a Codegen task
-            task_id = self.codegen_integration.create_codegen_task(codegen_prompt)
-            
-            if not task_id:
-                self.logger.error("Failed to create Codegen task for code refactoring")
-                return {"success": False, "error": "Failed to create Codegen task"}
-            
-            # Wait for the task to complete
-            result = self._wait_for_task_completion(task_id)
-            
-            # Extract refactored code from the result
-            refactored_code = self._extract_code_from_result(result, language)
-            
-            return {
-                "success": True,
-                "refactored_code": refactored_code,
-                "task_id": task_id,
-                "result": result
-            }
-        except Exception as e:
-            self.logger.error(f"Error refactoring code: {str(e)}")
-            return {"success": False, "error": str(e)}
-    
-    def _create_code_refactoring_prompt(self, code: str, language: str, instructions: str) -> str:
-        """
-        Create a prompt for code refactoring
-        
-        Args:
-            code: Code to refactor
-            language: Programming language
-            instructions: Refactoring instructions
-            
-        Returns:
-            str: Prompt for Codegen
-        """
-        # Create a prompt template
-        prompt_template = f"""
-Refactor the following {language} code according to these instructions:
-
-Instructions:
-{instructions}
-
-Original code:
-```{language}
-{code}
-```
-
-Please provide only the refactored code without any explanations or comments.
-"""
-        
-        return prompt_template
-    
-    def generate_tests(self, code: str, language: str) -> Dict[str, Any]:
-        """
-        Generate tests for code using Codegen
-        
-        Args:
-            code: Code to generate tests for
-            language: Programming language
-            
-        Returns:
-            Dict[str, Any]: Generated tests
-        """
-        try:
-            # Create a prompt for Codegen
-            codegen_prompt = self._create_test_generation_prompt(code, language)
-            
-            # Create a Codegen task
-            task_id = self.codegen_integration.create_codegen_task(codegen_prompt)
-            
-            if not task_id:
-                self.logger.error("Failed to create Codegen task for test generation")
-                return {"success": False, "error": "Failed to create Codegen task"}
-            
-            # Wait for the task to complete
-            result = self._wait_for_task_completion(task_id)
-            
-            # Extract tests from the result
-            tests = self._extract_code_from_result(result, language)
-            
-            return {
-                "success": True,
-                "tests": tests,
-                "task_id": task_id,
-                "result": result
-            }
-        except Exception as e:
-            self.logger.error(f"Error generating tests: {str(e)}")
-            return {"success": False, "error": str(e)}
-    
-    def _create_test_generation_prompt(self, code: str, language: str) -> str:
-        """
-        Create a prompt for test generation
-        
-        Args:
-            code: Code to generate tests for
-            language: Programming language
-            
-        Returns:
-            str: Prompt for Codegen
-        """
-        # Create a prompt template
-        prompt_template = f"""
-Generate comprehensive tests for the following {language} code:
-
-```{language}
-{code}
-```
-
-Please provide tests that cover:
-1. Normal operation
-2. Edge cases
-3. Error handling
-
-Use the appropriate testing framework for {language}.
-"""
-        
-        return prompt_template
-    
-    def _wait_for_task_completion(self, task_id: str, timeout: int = 3600) -> Dict[str, Any]:
-        """
-        Wait for a Codegen task to complete
-        
-        Args:
-            task_id: ID of the Codegen task
+            task: The task object
             timeout: Maximum time to wait in seconds
             
         Returns:
-            Dict[str, Any]: Result of the Codegen task
+            Dictionary containing the task result or error information
         """
-        import time
-        
         start_time = time.time()
         while time.time() - start_time < timeout:
-            # Get task status
-            status = self.codegen_integration.get_task_status(task_id)
-            
-            if not status:
-                self.logger.error(f"Failed to get status for task {task_id}")
-                return {"success": False, "error": f"Failed to get status for task {task_id}"}
-            
-            # Check if task is completed
-            if status.get("completed", False):
-                return {
-                    "success": True,
-                    "task_id": task_id,
-                    "status": status.get("status"),
-                    "result": status.get("result")
-                }
-            
-            # Wait before checking again
-            time.sleep(10)
+            task.refresh()
+            if task.status == "completed":
+                self.logger.info(f"Task completed successfully")
+                return {"success": True, "result": task.result}
+            elif task.status in ["failed", "cancelled"]:
+                self.logger.error(f"Task failed: {task.status}")
+                return {"success": False, "error": f"Task failed: {task.status}"}
+            time.sleep(5)
         
-        # Timeout
-        return {"success": False, "error": f"Task {task_id} timed out"}
-
+        self.logger.error(f"Task timed out after {timeout} seconds")
+        return {"success": False, "error": "Task timed out"}
+    
+    def analyze_code(self, code: str) -> Dict[str, Any]:
+        """
+        Analyze code to identify potential issues, complexity, and improvement opportunities.
+        
+        Args:
+            code: The code to analyze
+            
+        Returns:
+            Dictionary containing the analysis result or error information
+        """
+        prompt = f"""
+        Analyze the following code and provide insights on:
+        1. Code quality and potential issues
+        2. Complexity and performance considerations
+        3. Improvement opportunities
+        4. Best practices adherence
+        
+        Code to analyze:
+        ```
+        {code}
+        ```
+        """
+        
+        try:
+            task = self.run_codegen_task(prompt)
+            return self.wait_for_task_completion(task)
+        except Exception as e:
+            self.logger.exception(f"Error analyzing code: {str(e)}")
+            return {"success": False, "error": str(e)}
+    
+    def generate_tests(self, code: str) -> Dict[str, Any]:
+        """
+        Generate comprehensive tests for the provided code.
+        
+        Args:
+            code: The code to generate tests for
+            
+        Returns:
+            Dictionary containing the generated tests or error information
+        """
+        prompt = f"""
+        Generate comprehensive tests for the following code:
+        ```
+        {code}
+        ```
+        
+        Include tests for:
+        1. Normal operation
+        2. Edge cases
+        3. Error handling
+        4. Performance considerations
+        
+        Return the tests in a format appropriate for the language of the provided code.
+        """
+        
+        try:
+            task = self.run_codegen_task(prompt)
+            return self.wait_for_task_completion(task)
+        except Exception as e:
+            self.logger.exception(f"Error generating tests: {str(e)}")
+            return {"success": False, "error": str(e)}
+    
+    def refactor_code(self, code: str, requirements: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Refactor code to improve quality, readability, and performance.
+        
+        Args:
+            code: The code to refactor
+            requirements: Optional requirements for the refactoring
+            
+        Returns:
+            Dictionary containing the refactored code or error information
+        """
+        prompt = f"""
+        Refactor the following code to improve quality, readability, and performance:
+        ```
+        {code}
+        ```
+        
+        {f"Requirements for the refactoring:\n{requirements}" if requirements else ""}
+        
+        Return the refactored code with explanations of the improvements made.
+        """
+        
+        try:
+            task = self.run_codegen_task(prompt)
+            return self.wait_for_task_completion(task)
+        except Exception as e:
+            self.logger.exception(f"Error refactoring code: {str(e)}")
+            return {"success": False, "error": str(e)}
+    
+    def generate_documentation(self, code: str) -> Dict[str, Any]:
+        """
+        Generate comprehensive documentation for the provided code.
+        
+        Args:
+            code: The code to document
+            
+        Returns:
+            Dictionary containing the generated documentation or error information
+        """
+        prompt = f"""
+        Generate comprehensive documentation for the following code:
+        ```
+        {code}
+        ```
+        
+        Include:
+        1. Overview of functionality
+        2. API documentation
+        3. Usage examples
+        4. Dependencies and requirements
+        
+        Return the documentation in markdown format.
+        """
+        
+        try:
+            task = self.run_codegen_task(prompt)
+            return self.wait_for_task_completion(task)
+        except Exception as e:
+            self.logger.exception(f"Error generating documentation: {str(e)}")
+            return {"success": False, "error": str(e)}

@@ -59,8 +59,13 @@ config = AppConfigSource()
 log_dir = os.path.join(os.path.dirname(current_dir), "logs")
 os.makedirs(log_dir, exist_ok=True)
 telemetry_logger = TelemetryLogger(log_dir=log_dir)
-session_manager = SessionManager(config, telemetry_logger)
-tracing = Tracing(config, telemetry_logger)
+# Initialize tracing first since it's required by SessionManager
+# The Tracing class constructor takes no parameters as per its implementation in module/tracing.py
+# This is a dependency for SessionManager which requires config, logger, and tracing instances
+tracing = Tracing()
+# Now initialize SessionManager with all required parameters
+# SessionManager requires three positional arguments: config, logger, and tracing
+session_manager = SessionManager(config, telemetry_logger, tracing)
 
 # Create TaskWeaver app with proper dependencies
 taskweaver_app = TaskWeaverApp(

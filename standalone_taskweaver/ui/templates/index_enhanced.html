@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskWeaver with Codegen - Enhanced</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .card-header {
+            background-color: #f1f3f5;
+            border-bottom: 1px solid #dee2e6;
+            border-radius: 10px 10px 0 0 !important;
+        }
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 0 0 10px 10px;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+        .user-message {
+            background-color: #e9ecef;
+            margin-left: auto;
+        }
+        .assistant-message {
+            background-color: #d1e7ff;
+        }
+        .message-time {
+            font-size: 0.75rem;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        .status-badge {
+            font-size: 0.8rem;
+            padding: 5px 10px;
+        }
+        .task-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .task-item {
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .task-item:last-child {
+            border-bottom: none;
+        }
+        .task-status {
+            font-size: 0.8rem;
+            padding: 3px 8px;
+            border-radius: 10px;
+        }
+        .requirements-editor {
+            height: 300px;
+            font-family: monospace;
+        }
+        .nav-tabs .nav-link {
+            border-radius: 10px 10px 0 0;
+        }
+        .nav-tabs .nav-link.active {
+            font-weight: 500;
+        }
+        .btn-primary {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
+        }
+        .btn-primary:hover {
+            background-color: #0b5ed7;
+            border-color: #0a58ca;
+        }
+        .progress {
+            height: 10px;
+            margin-top: 10px;
+        }
+        .dependency-graph {
+            height: 300px;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            background-color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-4">TaskWeaver with Codegen <span class="badge bg-primary">Enhanced</span></h1>
+        
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="setup-tab" data-bs-toggle="tab" data-bs-target="#setup" type="button" role="tab" aria-controls="setup" aria-selected="true">
+                    <i class="bi bi-gear-fill"></i> Setup
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="chat-tab" data-bs-toggle="tab" data-bs-target="#chat" type="button" role="tab" aria-controls="chat" aria-selected="false">
+                    <i class="bi bi-chat-dots-fill"></i> Chat
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="requirements-tab" data-bs-toggle="tab" data-bs-target="#requirements" type="button" role="tab" aria-controls="requirements" aria-selected="false">
+                    <i class="bi bi-list-check"></i> Requirements
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tasks-tab" data-bs-toggle="tab" data-bs-target="#tasks" type="button" role="tab" aria-controls="tasks" aria-selected="false">
+                    <i class="bi bi-kanban-fill"></i> Tasks
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="execution-tab" data-bs-toggle="tab" data-bs-target="#execution" type="button" role="tab" aria-controls="execution" aria-selected="false">
+                    <i class="bi bi-play-fill"></i> Execution
+                </button>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="myTabContent">
+            <!-- Setup Tab -->
+            <div class="tab-pane fade show active" id="setup" role="tabpanel" aria-labelledby="setup-tab">
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">API Credentials</h5>
+                                <span id="connection-status" class="badge bg-secondary status-badge">Not Connected</span>
+                            </div>
+                            <div class="card-body">
+                                <form id="credentials-form">
+                                    <div class="mb-3">
+                                        <label for="github-token" class="form-label">GitHub Token</label>
+                                        <input type="password" class="form-control" id="github-token" placeholder="Enter GitHub token">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="codegen-token" class="form-label">Codegen Token</label>
+                                        <input type="password" class="form-control" id="codegen-token" placeholder="Enter Codegen token">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="ngrok-token" class="form-label">Ngrok Token (Optional)</label>
+                                        <input type="password" class="form-control" id="ngrok-token" placeholder="Enter Ngrok token">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Save Credentials</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Project Settings</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="project-form">
+                                    <div class="mb-3">
+                                        <label for="project-name" class="form-label">Project Name</label>
+                                        <input type="text" class="form-control" id="project-name" placeholder="Enter project name">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="project-description" class="form-label">Project Description</label>
+                                        <textarea class="form-control" id="project-description" rows="3" placeholder="Enter project description"></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Save Project Settings</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Chat Tab -->
+            <div class="tab-pane fade" id="chat" role="tabpanel" aria-labelledby="chat-tab">
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="mb-0">Chat with TaskWeaver</h5>
+                    </div>
+                    <div class="chat-container" id="chat-container">
+                        <!-- Chat messages will be displayed here -->
+                    </div>
+                    <div class="card-footer">
+                        <form id="chat-form" class="d-flex">
+                            <input type="text" class="form-control me-2" id="chat-input" placeholder="Type your message...">
+                            <button type="submit" class="btn btn-primary">Send</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Requirements Tab -->
+            <div class="tab-pane fade" id="requirements" role="tabpanel" aria-labelledby="requirements-tab">
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Requirements</h5>
+                            </div>
+                            <div class="card-body">
+                                <textarea class="form-control requirements-editor" id="requirements-editor" readonly></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Dependency Graph</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="dependency-graph" id="dependency-graph">
+                                    <!-- Dependency graph will be displayed here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tasks Tab -->
+            <div class="tab-pane fade" id="tasks" role="tabpanel" aria-labelledby="tasks-tab">
+                <div class="card mt-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Tasks</h5>
+                        <span id="tasks-count" class="badge bg-primary">0 tasks</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="task-list" id="task-list">
+                            <!-- Tasks will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Execution Tab -->
+            <div class="tab-pane fade" id="execution" role="tabpanel" aria-labelledby="execution-tab">
+                <div class="card mt-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Execution</h5>
+                        <span id="execution-status" class="badge bg-secondary">Not Started</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="concurrent-tasks" class="form-label">Max Concurrent Tasks</label>
+                            <input type="number" class="form-control" id="concurrent-tasks" min="1" max="10" value="3">
+                        </div>
+                        <div class="mb-3">
+                            <button id="initialize-button" class="btn btn-primary">Initialize</button>
+                            <button id="cancel-button" class="btn btn-danger" disabled>Cancel</button>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Progress</label>
+                            <div class="progress">
+                                <div id="execution-progress" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Execution Log</label>
+                            <div class="card">
+                                <div class="card-body">
+                                    <pre id="execution-log" class="mb-0" style="max-height: 200px; overflow-y: auto;"></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script>
+        // WebSocket connection
+        let socket = null;
+        
+        // Connect to WebSocket
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            socket = new WebSocket(wsUrl);
+            
+            socket.onopen = function(e) {
+                console.log("WebSocket connection established");
+                
+                // Start sending ping messages
+                setInterval(function() {
+                    if (socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify({
+                            type: "ping"
+                        }));
+                    }
+                }, 1000);
+            };
+            
+            socket.onmessage = function(event) {
+                const message = JSON.parse(event.data);
+                
+                if (message.type === "status") {
+                    updateExecutionStatus(message.data);
+                }
+            };
+            
+            socket.onclose = function(event) {
+                console.log("WebSocket connection closed");
+                
+                // Try to reconnect after 5 seconds
+                setTimeout(connectWebSocket, 5000);
+            };
+            
+            socket.onerror = function(error) {
+                console.error("WebSocket error:", error);
+            };
+        }
+        
+        // Update execution status
+        function updateExecutionStatus(status) {
+            const executionStatus = document.getElementById("execution-status");
+            const executionProgress = document.getElementById("execution-progress");
+            const executionLog = document.getElementById("execution-log");
+            const cancelButton = document.getElementById("cancel-button");
+            
+            // Update status badge
+            if (status.is_executing) {
+                executionStatus.textContent = "Running";
+                executionStatus.className = "badge bg-primary";
+                cancelButton.disabled = false;
+            } else if (status.agent_status && status.agent_status.status === "completed") {
+                executionStatus.textContent = "Completed";
+                executionStatus.className = "badge bg-success";
+                cancelButton.disabled = true;
+            } else if (status.agent_status && status.agent_status.status === "error") {
+                executionStatus.textContent = "Error";
+                executionStatus.className = "badge bg-danger";
+                cancelButton.disabled = true;
+            } else {
+                executionStatus.textContent = "Not Started";
+                executionStatus.className = "badge bg-secondary";
+                cancelButton.disabled = true;
+            }
+            
+            // Update progress bar
+            if (status.agent_status) {
+                const taskCount = status.agent_status.task_count || 0;
+                const completedTasks = status.agent_status.completed_tasks || 0;
+                
+                if (taskCount > 0) {
+                    const progress = Math.round((completedTasks / taskCount) * 100);
+                    executionProgress.style.width = `${progress}%`;
+                    executionProgress.textContent = `${progress}%`;
+                    executionProgress.setAttribute("aria-valuenow", progress);
+                }
+            }
+            
+            // Update execution log
+            if (status.results) {
+                let logText = "";
+                
+                for (const taskId in status.results) {
+                    const result = status.results[taskId];
+                    logText += `Task ${taskId} (${result.status}): ${result.output || result.error || "No output"}\n\n`;
+                }
+                
+                executionLog.textContent = logText;
+            }
+            
+            // Update task list
+            updateTaskList(status.results || {});
+        }
+        
+        // Update task list
+        function updateTaskList(results) {
+            const taskList = document.getElementById("task-list");
+            const tasksCount = document.getElementById("tasks-count");
+            
+            // Clear task list
+            taskList.innerHTML = "";
+            
+            // Add tasks
+            const taskIds = Object.keys(results);
+            tasksCount.textContent = `${taskIds.length} tasks`;
+            
+            for (const taskId of taskIds) {
+                const result = results[taskId];
+                
+                const taskItem = document.createElement("div");
+                taskItem.className = "task-item";
+                
+                // Task status badge
+                let statusClass = "bg-secondary";
+                if (result.status === "completed") {
+                    statusClass = "bg-success";
+                } else if (result.status === "failed") {
+                    statusClass = "bg-danger";
+                } else if (result.status === "running") {
+                    statusClass = "bg-primary";
+                }
+                
+                taskItem.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">${result.task_title || taskId}</h6>
+                        <span class="task-status badge ${statusClass}">${result.status}</span>
+                    </div>
+                    <p class="mb-0 text-muted">${result.task_description || "No description"}</p>
+                `;
+                
+                taskList.appendChild(taskItem);
+            }
+        }
+        
+        // Document ready
+        document.addEventListener("DOMContentLoaded", function() {
+            // Connect to WebSocket
+            connectWebSocket();
+            
+            // Credentials form
+            const credentialsForm = document.getElementById("credentials-form");
+            credentialsForm.addEventListener("submit", function(e) {
+                e.preventDefault();
+                
+                const githubToken = document.getElementById("github-token").value;
+                const codegenToken = document.getElementById("codegen-token").value;
+                const ngrokToken = document.getElementById("ngrok-token").value;
+                
+                // Send credentials to server
+                fetch("/api/credentials", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        github_token: githubToken,
+                        codegen_token: codegenToken,
+                        ngrok_token: ngrokToken
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        // Update connection status
+                        const connectionStatus = document.getElementById("connection-status");
+                        connectionStatus.textContent = "Connected";
+                        connectionStatus.className = "badge bg-success status-badge";
+                        
+                        // Show alert
+                        alert("Credentials saved successfully!");
+                    } else {
+                        alert("Failed to save credentials!");
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    alert("An error occurred while saving credentials!");
+                });
+            });
+            
+            // Project form
+            const projectForm = document.getElementById("project-form");
+            projectForm.addEventListener("submit", function(e) {
+                e.preventDefault();
+                
+                const projectName = document.getElementById("project-name").value;
+                const projectDescription = document.getElementById("project-description").value;
+                
+                // Send project settings to server
+                fetch("/api/project/context", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        project_name: projectName,
+                        project_description: projectDescription
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        // Show alert
+                        alert("Project settings saved successfully!");
+                    } else {
+                        alert("Failed to save project settings!");
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    alert("An error occurred while saving project settings!");
+                });
+            });
+            
+            // Chat form
+            const chatForm = document.getElementById("chat-form");
+            chatForm.addEventListener("submit", function(e) {
+                e.preventDefault();
+                
+                const chatInput = document.getElementById("chat-input");
+                const message = chatInput.value;
+                
+                if (!message) {
+                    return;
+                }
+                
+                // Add message to chat
+                addChatMessage("user", message);
+                
+                // Clear input
+                chatInput.value = "";
+                
+                // Send message to server
+                fetch("/api/chat/message", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        content: message
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        // Add response to chat
+                        addChatMessage("assistant", data.response);
+                        
+                        // Update requirements
+                        updateRequirements();
+                    } else {
+                        alert("Failed to send message!");
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    alert("An error occurred while sending message!");
+                });
+            });
+            
+            // Initialize button
+            const initializeButton = document.getElementById("initialize-button");
+            initializeButton.addEventListener("click", function() {
+                const maxConcurrentTasks = document.getElementById("concurrent-tasks").value;
+                
+                // Send execute tasks request
+                fetch("/api/tasks/execute", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        max_concurrent_tasks: parseInt(maxConcurrentTasks)
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        // Update execution status
+                        const executionStatus = document.getElementById("execution-status");
+                        executionStatus.textContent = "Running";
+                        executionStatus.className = "badge bg-primary";
+                        
+                        // Enable cancel button
+                        document.getElementById("cancel-button").disabled = false;
+                    } else {
+                        alert("Failed to execute tasks!");
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    alert("An error occurred while executing tasks!");
+                });
+            });
+            
+            // Cancel button
+            const cancelButton = document.getElementById("cancel-button");
+            cancelButton.addEventListener("click", function() {
+                // Send cancel request
+                fetch("/api/tasks/cancel", {
+                    method: "POST"
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        // Update execution status
+                        const executionStatus = document.getElementById("execution-status");
+                        executionStatus.textContent = "Cancelled";
+                        executionStatus.className = "badge bg-warning";
+                        
+                        // Disable cancel button
+                        cancelButton.disabled = true;
+                    } else {
+                        alert("Failed to cancel tasks!");
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                    alert("An error occurred while cancelling tasks!");
+                });
+            });
+            
+            // Load chat history
+            loadChatHistory();
+            
+            // Load requirements
+            updateRequirements();
+            
+            // Check credentials status
+            checkCredentialsStatus();
+        });
+        
+        // Add chat message
+        function addChatMessage(role, content) {
+            const chatContainer = document.getElementById("chat-container");
+            
+            const messageDiv = document.createElement("div");
+            messageDiv.className = `message ${role}-message`;
+            
+            const contentDiv = document.createElement("div");
+            contentDiv.textContent = content;
+            
+            const timeDiv = document.createElement("div");
+            timeDiv.className = "message-time";
+            timeDiv.textContent = new Date().toLocaleTimeString();
+            
+            messageDiv.appendChild(contentDiv);
+            messageDiv.appendChild(timeDiv);
+            
+            chatContainer.appendChild(messageDiv);
+            
+            // Scroll to bottom
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        // Load chat history
+        function loadChatHistory() {
+            fetch("/api/chat/history")
+                .then(response => response.json())
+                .then(data => {
+                    const chatContainer = document.getElementById("chat-container");
+                    chatContainer.innerHTML = "";
+                    
+                    for (const message of data.history) {
+                        addChatMessage(message.role, message.content);
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                });
+        }
+        
+        // Update requirements
+        function updateRequirements() {
+            fetch("/api/requirements")
+                .then(response => response.json())
+                .then(data => {
+                    // Update requirements editor
+                    document.getElementById("requirements-editor").value = data.text || "";
+                    
+                    // Update dependency graph
+                    // This would require a more complex implementation with D3.js
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                });
+        }
+        
+        // Check credentials status
+        function checkCredentialsStatus() {
+            fetch("/api/credentials")
+                .then(response => response.json())
+                .then(data => {
+                    const connectionStatus = document.getElementById("connection-status");
+                    
+                    if (data.codegen_token) {
+                        connectionStatus.textContent = "Connected";
+                        connectionStatus.className = "badge bg-success status-badge";
+                    } else {
+                        connectionStatus.textContent = "Not Connected";
+                        connectionStatus.className = "badge bg-secondary status-badge";
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                });
+        }
+    </script>
+</body>
+</html>
+

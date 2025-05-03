@@ -132,21 +132,31 @@ def main():
     try:
         if args.web:
             from taskweaver.ui.server import run_server
-            return run_server(host=args.host, port=args.port)
+            return run_server(host=args.host, port=args.port, config_path=args.config)
         elif args.gui:
             from taskweaver.ui.gui import run_gui
-            return run_gui()
+            return run_gui(config_path=args.config)
         elif args.cli:
             from taskweaver.cli import run_cli
-            return run_cli(project_dir=args.project, interactive=args.interactive)
+            return run_cli(project_dir=args.project, interactive=args.interactive, config_path=args.config)
         else:
             # Default to web UI if no mode specified
             logger.info("No UI mode specified, defaulting to web UI")
             from taskweaver.ui.server import run_server
-            return run_server(host=args.host, port=args.port)
+            return run_server(host=args.host, port=args.port, config_path=args.config)
     except ImportError as e:
         logger.error(f"Failed to import required module: {str(e)}")
-        logger.error("Make sure all dependencies are installed: pip install -e .")
+        
+        # Provide more specific guidance based on the UI mode
+        if args.web:
+            logger.error("For web UI, make sure FastAPI and uvicorn are installed:")
+            logger.error("pip install fastapi uvicorn jinja2")
+        elif args.gui:
+            logger.error("For GUI, make sure PyQt5 is installed:")
+            logger.error("pip install PyQt5")
+        else:
+            logger.error("Make sure all dependencies are installed: pip install -e .")
+        
         return 1
     except Exception as e:
         logger.error(f"Error: {str(e)}")
@@ -155,4 +165,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-

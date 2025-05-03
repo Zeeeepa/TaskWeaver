@@ -3,9 +3,13 @@ import json
 import setuptools
 
 # Read version from version.json
-with open("version.json", "r") as f:
-    version_info = json.load(f)
-    version_str = version_info["version"]
+try:
+    with open("version.json", "r") as f:
+        version_info = json.load(f)
+        version_str = version_info["version"]
+except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+    print(f"Warning: Could not read version from version.json: {e}")
+    version_str = "0.1.0"  # Default version if file is missing or invalid
 
 # Configurations
 with open("README.md", "r", encoding="utf-8", errors="ignore") as fh:
@@ -51,4 +55,3 @@ setuptools.setup(
         "console_scripts": ["taskweaver=taskweaver.__main__:main"],
     },
 )
-

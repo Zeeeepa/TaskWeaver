@@ -6,6 +6,9 @@ import logging
 import os
 from typing import Optional
 
+# Import version
+from taskweaver import __version__
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,7 +48,7 @@ def run_server(host: str = "0.0.0.0", port: int = 8000, config_path: Optional[st
         app = FastAPI(
             title="TaskWeaver",
             description="A code-first agent framework for data analytics tasks",
-            version="0.1.0",
+            version=__version__,
         )
         
         # Mount static files
@@ -72,4 +75,3 @@ def run_server(host: str = "0.0.0.0", port: int = 8000, config_path: Optional[st
     except Exception as e:
         logger.error(f"Error launching web UI: {str(e)}")
         return 1
-

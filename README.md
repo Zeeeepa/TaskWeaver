@@ -15,33 +15,33 @@ TaskWeaver is a powerful agent framework designed to break down complex data ana
 The TaskWeaver-Codegen integration creates a powerful workflow for data analytics and code generation:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                                                                             │
-│                          TaskWeaver-Codegen Flow                            │
-│                                                                             │
-├─────────────────┐                                  ┌──────────────────┐     │
-│                 │                                  │                  │     │
-│    User Input   │◄───────────────────────────────►│    Web UI/GUI    │     │
-│                 │                                  │                  │     │
-└────────┬────────┘                                  └──────────────────┘     │
-         │                                                    ▲               │
-         ▼                                                    │               │
-┌─────────────────┐                                  ┌────────┴─────────┐     │
-│                 │                                  │                  │     │
-│   TaskWeaver    │                                  │     Results      │     │
-│    Planner      │                                  │   Visualization  │     │
-│                 │                                  │                  │     │
-└────────┬────────┘                                  └──────────────────┘     │
-         │                                                    ▲               │
-         ▼                                                    │               │
-┌─────────────────┐                                  ┌────────┴─────────┐     │
-│                 │                                  │                  │     │
-│    Codegen      │◄─────────────────────────────────│    Execution     │     │
-│   Integration   │─────────────────────────────────►│    Environment   │     │
-│                 │                                  │                  │     │
-└─────────────────┘                                  └──────────────────┘     │
-                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
+\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
+\u2502                                                                             \u2502
+\u2502                          TaskWeaver-Codegen Flow                            \u2502
+\u2502                                                                             \u2502
+\u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510                                  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510     \u2502
+\u2502                 \u2502                                  \u2502                  \u2502     \u2502
+\u2502    User Input   \u2502\u25c4\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u25ba\u2502    Web UI/GUI    \u2502     \u2502
+\u2502                 \u2502                                  \u2502                  \u2502     \u2502
+\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518                                  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518     \u2502
+         \u2502                                                    \u25b2               \u2502
+         \u25bc                                                    \u2502               \u2502
+\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510                                  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510     \u2502
+\u2502                 \u2502                                  \u2502                  \u2502     \u2502
+\u2502   TaskWeaver    \u2502                                  \u2502   Visualization  \u2502     \u2502
+\u2502    Planner      \u2502                                  \u2502                  \u2502     \u2502
+\u2502                 \u2502                                  \u2502                  \u2502     \u2502
+\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518                                  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518     \u2502
+         \u2502                                                    \u25b2               \u2502
+         \u25bc                                                    \u2502               \u2502
+\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510                                  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510     \u2502
+\u2502                 \u2502                                  \u2502                  \u2502     \u2502
+\u2502    Codegen      \u2502\u25c4\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2502    Execution     \u2502     \u2502
+\u2502   Integration   \u2502\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u25ba\u2502    Environment   \u2502     \u2502
+\u2502                 \u2502                                  \u2502                  \u2502     \u2502
+\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518                                  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518     \u2502
+                                                                              \u2502
+\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
 ```
 
 ### Flow Explanation:
@@ -55,6 +55,38 @@ The TaskWeaver-Codegen integration creates a powerful workflow for data analytic
 4. **Execution Environment**: Provides the necessary runtime for code execution.
 5. **Results Visualization**: Formats and presents the results to the user.
 6. **Web UI/GUI**: Provides an interactive interface for the entire process.
+
+## 📦 Installation
+
+### Prerequisites
+- Python 3.8+
+- Git
+
+### Installation Steps
+
+```bash
+# Clone the repository
+git clone https://github.com/microsoft/TaskWeaver.git
+cd TaskWeaver
+
+# Create a virtual environment (optional but recommended)
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Install additional dependencies for Codegen integration
+pip install requests PyQt5
+```
+
+### Version Compatibility
+
+TaskWeaver-Codegen integration is compatible with:
+- TaskWeaver v1.0.0 or later
+- Codegen API v2.0.0 or later
+
+For the latest compatibility information, please refer to the [official documentation](https://github.com/microsoft/TaskWeaver/tree/main/docs).
 
 ## 📋 Input Requirements
 
@@ -321,7 +353,7 @@ def send_request_to_codegen(task_description, code_context=None, error_details=N
     Returns:
         Generated code from Codegen API
     """
-    api_endpoint = "https://api.codegen.example/generate"
+    api_endpoint = "https://api.codegen.example/generate"  # This is a placeholder - refer to Codegen documentation for the actual endpoint
     
     payload = {
         "task": task_description,
@@ -361,6 +393,38 @@ def send_request_to_codegen(task_description, code_context=None, error_details=N
   - PyQt5 (for GUI mode)
   - requests (for Codegen integration)
 
+## ❓ Troubleshooting
+
+### Common Issues
+
+1. **API Connection Errors**:
+   - Ensure your Codegen API credentials are correctly configured
+   - Check network connectivity to the Codegen API endpoint
+   - Verify that the API endpoint URL is correct in your configuration
+
+2. **Code Execution Failures**:
+   - Check that all required dependencies are installed
+   - Ensure input data files exist and are accessible
+   - Review execution environment permissions
+
+3. **Integration Issues**:
+   - Verify TaskWeaver and Codegen version compatibility
+   - Check that request formats match the expected API schema
+   - Ensure proper error handling in integration code
+
+### Debugging Tips
+
+- Enable debug logging with the `--debug` flag for detailed information
+- Check the logs directory for error messages and stack traces
+- Use the CLI mode with `--interactive` flag for step-by-step debugging
+
+### Getting Help
+
+If you encounter issues not covered here, please:
+- Check the [GitHub Issues](https://github.com/microsoft/TaskWeaver/issues) for similar problems
+- Join the [TaskWeaver Community](https://github.com/microsoft/TaskWeaver/discussions) for support
+- Refer to the [Codegen Documentation](https://codegen.sh/docs) for API-specific questions
+
 ## 📚 Additional Resources
 
 - [TaskWeaver Documentation](https://github.com/microsoft/TaskWeaver/tree/main/docs)
@@ -375,4 +439,3 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for det
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-

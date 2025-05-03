@@ -29,12 +29,14 @@ from standalone_taskweaver.codegen_agent.concurrent_context_manager import Concu
 
 # Import Codegen SDK
 try:
-    from codegen import Agent, CodegenClient
+    from codegen import Agent
+    from codegen.extensions.events.client import CodegenClient
 except ImportError:
     print("Codegen SDK not found. Installing...")
     import subprocess
     subprocess.check_call([sys.executable, "-m", "pip", "install", "codegen"])
-    from codegen import Agent, CodegenClient
+    from codegen import Agent
+    from codegen.extensions.events.client import CodegenClient
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -112,7 +114,7 @@ class CodegenAgent:
             self.codegen_token = codegen_token
             
             # Initialize Codegen client
-            self.codegen_client = CodegenClient(api_key=codegen_token)
+            self.codegen_client = CodegenClient(base_url="https://api.codegen.sh")
             self.agent = Agent(api_key=codegen_token)
             
             # Initialize components
@@ -331,4 +333,3 @@ class CodegenAgent:
         except Exception as e:
             logger.error(f"Failed to cancel tasks: {str(e)}")
             return False
-

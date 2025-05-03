@@ -1,70 +1,218 @@
-# Standalone TaskWeaver
+# TaskWeaver
 
-This is a standalone implementation of Microsoft's TaskWeaver, a code-first agent framework for seamlessly planning and executing data analytics tasks.
+<div align="center">
+  <img src="https://raw.githubusercontent.com/microsoft/TaskWeaver/main/docs/images/taskweaver-logo.png" alt="TaskWeaver Logo" width="200"/>
+</div>
 
-## Overview
+A code-first agent framework for seamlessly planning and executing data analytics tasks with Codegen integration.
 
-TaskWeaver is designed to break down complex tasks into manageable steps, generate appropriate code, and maintain state throughout the execution process. This standalone implementation preserves the core functionality of TaskWeaver while providing a simplified interface.
+## 🌟 Overview
 
-## Key Components
+TaskWeaver is a powerful agent framework designed to break down complex data analytics tasks into manageable steps, generate appropriate code, and maintain state throughout the execution process. This implementation enhances the original TaskWeaver with Codegen integration, providing a more robust and versatile experience.
 
-### 1. App Module
-- `TaskWeaverApp`: Main application class
-- `SessionManager`: Manages conversation sessions
+## 🔄 Flow Architecture
 
-### 2. Planner Module
-- `Planner`: Handles task planning and decomposition
-- Implements conversation management and plan generation
+The TaskWeaver-Codegen integration creates a powerful workflow for data analytics and code generation:
 
-### 3. Code Interpreter Module
-- `CodeInterpreter`: Executes and verifies code
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│                          TaskWeaver-Codegen Flow                        │
+│                                                                         │
+├─────────────────┐                                  ┌──────────────────┐ │
+│                 │                                  │                  │ │
+│    User Input   │◄─────────────────────────────────│    Web UI/GUI    │ │
+│                 │                                  │                  │ │
+└────────┬────────┘                                  └──────────────────┘ │
+         │                                                    ▲           │
+         ▼                                                    │           │
+┌─────────────────┐                                  ┌────────┴─────────┐ │
+│                 │                                  │                  │ │
+│   TaskWeaver    │                                  │     Results      │ │
+│    Planner      │                                  │   Visualization  │ │
+│                 │                                  │                  │ │
+└────────┬────────┘                                  └──────────────────┘ │
+         │                                                    ▲           │
+         ▼                                                    │           │
+┌─────────────────┐    ┌─────────────────┐    ┌──────────────┴─────────┐ │
+│                 │    │                 │    │                        │ │
+│  Code Generator ├───►│ Code Interpreter├───►│ Execution Environment  │ │
+│                 │    │                 │    │                        │ │
+└─────────────────┘    └─────────────────┘    └────────────────────────┘ │
+         │                                                                │
+         ▼                                                                │
+┌─────────────────┐                                                       │
+│                 │                                                       │
+│    Codegen      │                                                       │
+│   Integration   │                                                       │
+│                 │                                                       │
+└─────────────────┘                                                       │
+                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
-### 4. Memory Module
-- `Memory`: Stores conversation history
-- `Conversation`: Manages conversation rounds
-- `Post`: Handles message exchange
-- `Attachment`: Stores additional data
-- `RoundCompressor`: Optimizes conversation history
+### Flow Explanation:
 
-### 5. Role Module
-- `Role`: Base class for different roles
-- `RoleRegistry`: Manages available roles
-- `PostTranslator`: Handles message translation
+1. **User Input**: The process begins with a user query or task description.
+2. **TaskWeaver Planner**: Analyzes the input and breaks it down into logical steps.
+3. **Code Generator**: Creates Python code to execute each step of the plan.
+4. **Codegen Integration**: Enhances code generation with advanced capabilities:
+   - Code optimization
+   - Error handling
+   - Best practices implementation
+   - Library selection
+5. **Code Interpreter**: Executes the generated code in a controlled environment.
+6. **Execution Environment**: Provides the necessary runtime for code execution.
+7. **Results Visualization**: Formats and presents the results to the user.
+8. **Web UI/GUI**: Provides an interactive interface for the entire process.
 
-### 6. Session Module
-- `Session`: Manages individual conversation sessions
-- `SessionMetadata`: Stores session information
+## 📋 Input Requirements
 
-### 7. LLM Module
-- `LLMApi`: Base class for language model integration
-- `ChatMessageType`: Defines message structure
+### TaskWeaver Input Requirements
 
-### 8. Config Module
-- `AppConfigSource`: Manages application configuration
-- `ModuleConfig`: Base class for module configurations
+1. **Task Description**:
+   - Natural language description of the data analytics task
+   - Specific goals or questions to be answered
+   - Any constraints or preferences for the analysis
 
-## Usage
+2. **Data Sources**:
+   - File paths or URLs to data sources
+   - Database connection parameters (if applicable)
+   - API credentials (if accessing external data)
 
-### Quick Start with the Launcher
+3. **Configuration Parameters**:
+   - Model selection (e.g., OpenAI model)
+   - API keys and endpoints
+   - Memory and processing constraints
 
-TaskWeaver now includes a unified launcher script (`main.py`) that provides a simple way to start the application in different UI modes:
+4. **Optional Parameters**:
+   - Output format preferences
+   - Visualization types
+   - Execution timeout limits
+
+### Codegen Input Requirements
+
+1. **Code Context**:
+   - Existing codebase or repository information
+   - Language and framework specifications
+   - Coding standards and conventions
+
+2. **Enhancement Requests**:
+   - Specific code improvements needed
+   - Performance optimization targets
+   - Error handling requirements
+
+3. **Integration Parameters**:
+   - API endpoints for Codegen services
+   - Authentication credentials
+   - Response format preferences
+
+## 🔌 Interaction Capabilities
+
+### TaskWeaver Capabilities
+
+1. **Task Planning**:
+   - Breaking down complex tasks into subtasks
+   - Identifying dependencies between tasks
+   - Creating execution plans with proper sequencing
+
+2. **Code Generation**:
+   - Creating Python code for data analysis
+   - Generating data visualization scripts
+   - Implementing statistical models and algorithms
+
+3. **Execution Management**:
+   - Running code in a controlled environment
+   - Handling errors and exceptions
+   - Managing computational resources
+
+4. **Memory and State**:
+   - Maintaining conversation history
+   - Tracking variable states across execution steps
+   - Storing intermediate results
+
+### Codegen Capabilities
+
+1. **Code Enhancement**:
+   - Optimizing generated code for performance
+   - Implementing best practices and patterns
+   - Adding robust error handling
+
+2. **Library Selection**:
+   - Recommending appropriate libraries for tasks
+   - Ensuring compatibility between dependencies
+   - Implementing efficient import strategies
+
+3. **Code Review**:
+   - Analyzing code for potential issues
+   - Suggesting improvements and alternatives
+   - Ensuring code quality and readability
+
+4. **Integration Services**:
+   - Providing API endpoints for code generation
+   - Supporting webhook notifications
+   - Enabling seamless communication between components
+
+### Combined System Capabilities
+
+1. **End-to-End Analytics Workflow**:
+   - From natural language to executable code
+   - Complete data analysis pipeline creation
+   - Results visualization and interpretation
+
+2. **Interactive Development**:
+   - Real-time code generation and execution
+   - Iterative refinement based on feedback
+   - Conversation-driven development
+
+3. **Multi-Modal Interfaces**:
+   - Web UI for browser-based access
+   - Desktop GUI for local development
+   - CLI for automation and scripting
+
+4. **Extensibility**:
+   - Plugin system for custom components
+   - API access for external integration
+   - Customizable templates and workflows
+
+## 🚀 Usage Instructions
+
+### Web UI (Default)
+
+The web interface provides the most user-friendly experience with full Codegen integration:
 
 ```bash
-# Launch the web UI (default)
+# Launch with default settings
 python main.py
 
-# Launch the web UI with custom host and port
+# Launch with custom host and port
 python main.py --web --host 127.0.0.1 --port 8080
+```
 
+### Desktop GUI
+
+The desktop application offers a native experience:
+
+```bash
 # Launch the desktop GUI
 python main.py --gui
+```
 
-# Launch the CLI interface with a project directory
+### Command Line Interface (CLI)
+
+For automation and scripting:
+
+```bash
+# Launch with a project directory
 python main.py --cli --project /path/to/project
 
-# Launch the CLI in interactive mode
+# Launch in interactive mode
 python main.py --cli --project /path/to/project --interactive
+```
 
+### Common Options
+
+```bash
 # Enable automatic dependency installation
 python main.py --auto-install
 
@@ -78,7 +226,50 @@ python main.py --debug
 python main.py --version
 ```
 
-### Programmatic Usage
+## 📊 Example Workflows
+
+### Data Analysis Workflow
+
+```
+User: "Analyze the sales data from 'sales.csv' and create a visualization showing monthly trends"
+
+TaskWeaver:
+1. Breaks down the task into: data loading, cleaning, analysis, and visualization
+2. Generates code for each step
+3. Sends code to Codegen for optimization
+4. Executes the enhanced code
+5. Returns visualizations and insights
+```
+
+### Machine Learning Workflow
+
+```
+User: "Build a prediction model for customer churn using 'customer_data.csv'"
+
+TaskWeaver:
+1. Plans the ML pipeline: preprocessing, feature engineering, model selection, training, evaluation
+2. Generates initial code for each step
+3. Codegen enhances the code with best practices and optimizations
+4. TaskWeaver executes the pipeline
+5. Returns model performance metrics and predictions
+```
+
+### Data Integration Workflow
+
+```
+User: "Combine data from 'users.json' and 'purchases.csv' and analyze purchase patterns"
+
+TaskWeaver:
+1. Plans the integration approach: data loading, schema alignment, joining, analysis
+2. Generates code for data integration
+3. Codegen optimizes the integration code
+4. TaskWeaver executes the integration and analysis
+5. Returns insights about purchase patterns
+```
+
+## 💻 Advanced Usage
+
+### Programmatic Integration
 
 ```python
 import os
@@ -119,34 +310,44 @@ print(response)
 session.close()
 ```
 
-## Features
+### Codegen API Integration
 
-1. **Interactive Conversation**
-   - Full conversation flow implementation
-   - Session state and history maintenance
-   - Message routing between components
+```python
+import requests
+import json
 
-2. **Planning System**
-   - Task breakdown into subtasks
-   - Dependency management between tasks
-   - Plan verification and adjustment
+def enhance_code_with_codegen(code_snippet, enhancement_type="optimize"):
+    """
+    Enhance code using Codegen API
+    
+    Args:
+        code_snippet: The code to enhance
+        enhancement_type: Type of enhancement (optimize, secure, document)
+        
+    Returns:
+        Enhanced code snippet
+    """
+    api_endpoint = "https://api.codegen.example/enhance"
+    
+    payload = {
+        "code": code_snippet,
+        "enhancement_type": enhancement_type,
+        "language": "python",
+    }
+    
+    response = requests.post(
+        api_endpoint,
+        headers={"Content-Type": "application/json"},
+        data=json.dumps(payload)
+    )
+    
+    if response.status_code == 200:
+        return response.json()["enhanced_code"]
+    else:
+        raise Exception(f"Codegen API error: {response.text}")
+```
 
-3. **Code Generation and Execution**
-   - Python code generation based on plans
-   - Code verification and execution
-   - Result formatting and presentation
-
-4. **Memory Management**
-   - Conversation history storage
-   - Attachment and metadata management
-   - Compression for optimization
-
-5. **Role System**
-   - Support for multiple role types
-   - Role registration and management
-   - Role-specific configurations
-
-## Requirements
+## 🛠️ Requirements
 
 - Python 3.8+
 - Dependencies:
@@ -157,9 +358,21 @@ session.close()
   - dataclasses
   - contextlib
   - uuid
+  - PyQt5 (for GUI mode)
+  - requests (for Codegen integration)
 
-## Implementation Notes
+## 📚 Additional Resources
 
-This standalone implementation focuses on preserving the core functionality of TaskWeaver while simplifying the interface. It includes all necessary dependencies and components to provide a complete TaskWeaver experience.
+- [TaskWeaver Documentation](https://github.com/microsoft/TaskWeaver/tree/main/docs)
+- [Codegen Documentation](https://codegen.sh/docs)
+- [API Reference](https://github.com/microsoft/TaskWeaver/tree/main/docs/api)
+- [Examples Repository](https://github.com/microsoft/TaskWeaver/tree/main/examples)
 
-The implementation is designed to be modular and extensible, allowing for easy customization and integration with other systems.
+## 🤝 Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+

@@ -34,33 +34,33 @@ TaskWeaver is a powerful agent framework designed to break down complex data ana
 The TaskWeaver-Codegen integration creates a powerful workflow for data analytics and code generation:
 
 ```
-\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
-\u2502                                                                             \u2502
-\u2502                          TaskWeaver-Codegen Flow                            \u2502
-\u2502                                                                             \u2502
-\u251c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510                                  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510     \u2502
-\u2502                 \u2502                                  \u2502                  \u2502     \u2502
-\u2502    User Input   \u2502\u25c4\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u25ba\u2502    Web UI/GUI    \u2502     \u2502
-\u2502                 \u2502                                  \u2502                  \u2502     \u2502
-\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518                                  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518     \u2502
-         \u2502                                                    \u25b2               \u2502
-         \u25bc                                                    \u2502               \u2502
-\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510                                  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510     \u2502
-\u2502                 \u2502                                  \u2502                  \u2502     \u2502
-\u2502   TaskWeaver    \u2502                                  \u2502   Visualization  \u2502     \u2502
-\u2502    Planner      \u2502                                  \u2502                  \u2502     \u2502
-\u2502                 \u2502                                  \u2502                  \u2502     \u2502
-\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518                                  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518     \u2502
-         \u2502                                                    \u25b2               \u2502
-         \u25bc                                                    \u2502               \u2502
-\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510                                  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510     \u2502
-\u2502                 \u2502                                  \u2502                  \u2502     \u2502
-\u2502    Codegen      \u2502\u25c4\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2502    Execution     \u2502     \u2502
-\u2502   Integration   \u2502\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u25ba\u2502    Environment   \u2502     \u2502
-\u2502                 \u2502                                  \u2502                  \u2502     \u2502
-\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518                                  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518     \u2502
-                                                                              \u2502
-\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│                          TaskWeaver-Codegen Flow                            │
+│                                                                             │
+├───────────────┐                                  ┌──────────────┐     │
+│                 │                                  │                  │     │
+│    User Input   │◄────────────────────────────────►│    Web UI/GUI    │     │
+│                 │                                  │                  │     │
+└───────────┬─────┘                                  └──────────────┘     │
+         │                                                    ▲               │
+         ▼                                                    │               │
+┌───────────────────┐                                  ┌──────┴───────┐     │
+│                 │                                  │                  │     │
+│   TaskWeaver    │                                  │   Visualization  │     │
+│    Planner      │                                  │                  │     │
+│                 │                                  │                  │     │
+└───────────┬─────┘                                  └──────────────┘     │
+         │                                                    ▲               │
+         ▼                                                    │               │
+┌───────────────────┐                                  ┌──────┴───────┐     │
+│                 │                                  │                  │     │
+│    Codegen      │◄────────────────────────────────►│    Execution     │     │
+│   Integration   │───────────────────────────────────►│    Environment   │     │
+│                 │                                  │                  │     │
+└───────────────────┘                                  └──────────────┘     │
+                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Flow Explanation:
@@ -138,6 +138,131 @@ TaskWeaver-Codegen integration is compatible with:
 - Codegen API v2.0.0 or later
 
 For the latest compatibility information, please refer to the [official documentation](https://github.com/microsoft/TaskWeaver/tree/main/docs).
+
+## 🔧 Deployment Setup Guide
+
+### Local Development Deployment
+
+For local development and testing:
+
+1. **Clone and Set Up Environment**:
+   ```bash
+   git clone https://github.com/microsoft/TaskWeaver.git
+   cd TaskWeaver
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+2. **Configure Environment Variables**:
+   ```bash
+   # Create a .env file in the project root
+   echo "CODEGEN_API_ENDPOINT=https://api.codegen.sh/v2/generate" > .env
+   echo "CODEGEN_API_KEY=your_codegen_api_key" >> .env
+   echo "TASKWEAVER_MODEL=gpt-4" >> .env
+   echo "TASKWEAVER_LOG_LEVEL=info" >> .env
+   ```
+
+3. **Run Development Server**:
+   ```bash
+   python main.py --web --host 127.0.0.1 --port 8080 --debug
+   ```
+
+### Production Deployment
+
+For production environments:
+
+1. **System Requirements**:
+   - 4+ CPU cores
+   - 8+ GB RAM
+   - 20+ GB disk space
+   - Python 3.8+ installed
+
+2. **Setup with Docker**:
+   ```bash
+   # Build the Docker image
+   docker build -t taskweaver:latest .
+
+   # Run the container
+   docker run -d \
+     -p 8080:8080 \
+     -e CODEGEN_API_ENDPOINT="https://api.codegen.sh/v2/generate" \
+     -e CODEGEN_API_KEY="your_codegen_api_key" \
+     -e TASKWEAVER_MODEL="gpt-4" \
+     -e TASKWEAVER_LOG_LEVEL="info" \
+     --name taskweaver-app \
+     taskweaver:latest
+   ```
+
+3. **Setup with Systemd (Linux)**:
+   Create a systemd service file at `/etc/systemd/system/taskweaver.service`:
+   ```
+   [Unit]
+   Description=TaskWeaver Service
+   After=network.target
+
+   [Service]
+   User=taskweaver
+   WorkingDirectory=/opt/taskweaver
+   ExecStart=/opt/taskweaver/venv/bin/python /opt/taskweaver/main.py --web --host 0.0.0.0 --port 8080
+   Restart=always
+   Environment=CODEGEN_API_ENDPOINT=https://api.codegen.sh/v2/generate
+   Environment=CODEGEN_API_KEY=your_codegen_api_key
+   Environment=TASKWEAVER_MODEL=gpt-4
+   Environment=TASKWEAVER_LOG_LEVEL=info
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+   Then enable and start the service:
+   ```bash
+   sudo systemctl enable taskweaver
+   sudo systemctl start taskweaver
+   ```
+
+4. **Nginx Configuration (Optional)**:
+   For production deployments, it's recommended to use Nginx as a reverse proxy:
+   ```
+   server {
+       listen 80;
+       server_name your-domain.com;
+
+       location / {
+           proxy_pass http://localhost:8080;
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+           proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+           proxy_set_header X-Forwarded-Proto $scheme;
+       }
+   }
+   ```
+
+5. **Monitoring and Logging**:
+   - Set up log rotation with logrotate
+   - Configure monitoring with Prometheus and Grafana
+   - Set up alerts for service disruptions
+
+### Scaling Considerations
+
+For high-traffic deployments:
+
+1. **Horizontal Scaling**:
+   - Deploy multiple instances behind a load balancer
+   - Use Redis or another distributed cache for session management
+
+2. **Database Integration**:
+   - For persistent storage, configure a PostgreSQL database
+   - Update the configuration to use the database for task history and results
+
+3. **Memory Management**:
+   - Adjust the `memory_limit` setting based on your server's capabilities
+   - Monitor memory usage and adjust as needed
+
+4. **Security Considerations**:
+   - Enable HTTPS with Let's Encrypt
+   - Implement authentication for API access
+   - Regularly update dependencies and apply security patches
 
 ## 📋 Input Requirements
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +11,8 @@
             flex-direction: column;
             height: 100vh;
             padding: 20px;
+            background-color: #121212;
+            color: #e0e0e0;
         }
         
         .codegen-header {
@@ -23,6 +25,7 @@
         .codegen-title {
             font-size: 24px;
             font-weight: bold;
+            color: #e0e0e0;
         }
         
         .codegen-status {
@@ -38,11 +41,11 @@
         }
         
         .status-connected {
-            background-color: #4CAF50;
+            background-color: #48bb78;
         }
         
         .status-disconnected {
-            background-color: #F44336;
+            background-color: #f56565;
         }
         
         .codegen-main {
@@ -53,20 +56,22 @@
         
         .codegen-sidebar {
             width: 300px;
-            background-color: #f5f5f5;
+            background-color: #1e1e1e;
             border-radius: 5px;
             padding: 15px;
             overflow-y: auto;
+            border: 1px solid #333;
         }
         
         .codegen-content {
             flex: 1;
             display: flex;
             flex-direction: column;
-            background-color: #f5f5f5;
+            background-color: #1e1e1e;
             border-radius: 5px;
             padding: 15px;
             overflow-y: auto;
+            border: 1px solid #333;
         }
         
         .repo-list {
@@ -79,14 +84,15 @@
             margin-bottom: 5px;
             cursor: pointer;
             transition: background-color 0.2s;
+            color: #e0e0e0;
         }
         
         .repo-item:hover {
-            background-color: #e0e0e0;
+            background-color: #2d3748;
         }
         
         .repo-item.active {
-            background-color: #e0e0e0;
+            background-color: #2d3748;
             font-weight: bold;
         }
         
@@ -96,7 +102,7 @@
         
         .repo-description {
             font-size: 12px;
-            color: #666;
+            color: #a0aec0;
             margin-top: 5px;
         }
         
@@ -110,20 +116,21 @@
             margin-bottom: 5px;
             cursor: pointer;
             transition: background-color 0.2s;
+            color: #e0e0e0;
         }
         
         .task-item:hover {
-            background-color: #e0e0e0;
+            background-color: #2d3748;
         }
         
         .task-item.active {
-            background-color: #e0e0e0;
+            background-color: #2d3748;
             font-weight: bold;
         }
         
         .task-id {
             font-size: 12px;
-            color: #666;
+            color: #a0aec0;
         }
         
         .task-status {
@@ -132,15 +139,15 @@
         }
         
         .task-status.completed {
-            color: #4CAF50;
+            color: #48bb78;
         }
         
         .task-status.failed {
-            color: #F44336;
+            color: #f56565;
         }
         
         .task-status.running {
-            color: #2196F3;
+            color: #4299e1;
         }
         
         .codegen-form {
@@ -155,27 +162,32 @@
             display: block;
             margin-bottom: 5px;
             font-weight: bold;
+            color: #e0e0e0;
         }
         
         .form-input {
             width: 100%;
             padding: 10px;
-            border: 1px solid #ddd;
+            border: 1px solid #4a5568;
             border-radius: 5px;
+            background-color: #2d3748;
+            color: #e0e0e0;
         }
         
         .form-textarea {
             width: 100%;
             padding: 10px;
-            border: 1px solid #ddd;
+            border: 1px solid #4a5568;
             border-radius: 5px;
             min-height: 150px;
             resize: vertical;
+            background-color: #2d3748;
+            color: #e0e0e0;
         }
         
         .form-button {
             padding: 10px 20px;
-            background-color: #2196F3;
+            background-color: #3182ce;
             color: white;
             border: none;
             border-radius: 5px;
@@ -184,7 +196,7 @@
         }
         
         .form-button:hover {
-            background-color: #0b7dda;
+            background-color: #2c5282;
         }
         
         .task-details {
@@ -201,6 +213,7 @@
         .task-details-title {
             font-size: 18px;
             font-weight: bold;
+            color: #e0e0e0;
         }
         
         .task-details-status {
@@ -211,34 +224,40 @@
         }
         
         .task-details-status.completed {
-            background-color: #4CAF50;
+            background-color: #48bb78;
         }
         
         .task-details-status.failed {
-            background-color: #F44336;
+            background-color: #f56565;
         }
         
         .task-details-status.running {
-            background-color: #2196F3;
+            background-color: #4299e1;
         }
         
         .task-details-content {
-            background-color: white;
+            background-color: #1e1e1e;
             border-radius: 5px;
             padding: 15px;
             overflow-y: auto;
             max-height: 500px;
+            border: 1px solid #333;
+            color: #e0e0e0;
         }
         
         .task-details-result {
             margin-top: 15px;
             white-space: pre-wrap;
             font-family: monospace;
+            color: #e0e0e0;
+            background-color: #2d3748;
+            padding: 10px;
+            border-radius: 5px;
         }
         
         .task-details-error {
             margin-top: 15px;
-            color: #F44336;
+            color: #f56565;
         }
         
         .task-details-pr {
@@ -246,7 +265,7 @@
         }
         
         .task-details-pr a {
-            color: #2196F3;
+            color: #4299e1;
             text-decoration: none;
         }
         
@@ -256,7 +275,7 @@
         
         .code-editor {
             margin-top: 20px;
-            border: 1px solid #ddd;
+            border: 1px solid #333;
             border-radius: 5px;
             overflow: hidden;
         }
@@ -266,12 +285,13 @@
             justify-content: space-between;
             align-items: center;
             padding: 10px;
-            background-color: #f0f0f0;
-            border-bottom: 1px solid #ddd;
+            background-color: #252525;
+            border-bottom: 1px solid #333;
         }
         
         .code-editor-title {
             font-weight: bold;
+            color: #e0e0e0;
         }
         
         .code-editor-actions {
@@ -285,15 +305,19 @@
             font-family: monospace;
             white-space: pre-wrap;
             overflow-y: auto;
+            background-color: #1e1e1e;
+            color: #e0e0e0;
         }
         
         .setup-form {
             max-width: 600px;
             margin: 0 auto;
             padding: 20px;
-            background-color: white;
+            background-color: #1e1e1e;
             border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+            border: 1px solid #333;
+            color: #e0e0e0;
         }
         
         .setup-title {
@@ -301,19 +325,20 @@
             font-weight: bold;
             margin-bottom: 20px;
             text-align: center;
+            color: #e0e0e0;
         }
         
         .setup-description {
             margin-bottom: 20px;
             text-align: center;
-            color: #666;
+            color: #a0aec0;
         }
         
         .setup-button {
             display: block;
             width: 100%;
             padding: 15px;
-            background-color: #2196F3;
+            background-color: #3182ce;
             color: white;
             border: none;
             border-radius: 5px;
@@ -325,7 +350,11 @@
         }
         
         .setup-button:hover {
-            background-color: #0b7dda;
+            background-color: #2c5282;
+        }
+        
+        .loading {
+            color: #a0aec0;
         }
     </style>
 </head>
@@ -788,4 +817,3 @@
     </script>
 </body>
 </html>
-

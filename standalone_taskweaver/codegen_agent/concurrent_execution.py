@@ -25,6 +25,7 @@ from standalone_taskweaver.logging import TelemetryLogger
 from standalone_taskweaver.memory import Memory
 from standalone_taskweaver.codegen_agent.requirements_manager import AtomicTask
 from standalone_taskweaver.codegen_agent.utils import safe_execute, validate_required_params
+from standalone_taskweaver.codegen_agent.task_polling import poll_codegen_task_async, poll_codegen_task_sync
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -221,7 +222,7 @@ class ConcurrentExecutionEngine:
         
         # Execute tasks
         async def execute_task(task):
-            result = self._execute_task(task)
+            result = await self._execute_task_async(task)
             await completed_queue.put(task.id)
             return result
         
@@ -374,12 +375,14 @@ class ConcurrentExecutionEngine:
         # Execute the task using the Codegen agent
         codegen_task = self.codegen_agent.create_task(prompt=prompt, context=context)
         
-        # Wait for the task to complete
-        max_retries = 30
-        for i in range(max_retries):
-            # Check if cancellation was requested
-            if self.cancel_event.is_set():
-                # Update task result
+        # Use the helper to poll task status
+        codegen_task = poll_codegen_task_sync(codegen_task)
+        
+        # Check if cancellation was requested
+        if self.cancel_event.is_set():
+            # Update task result
+            result = self.task_results.get(task.id)
+            if result:
                 result.status = TaskStatus.CANCELLED
                 result.end_time = time.time()
                 result.duration = result.end_time - result.start_time
@@ -387,52 +390,50 @@ class ConcurrentExecutionEngine:
                 # Update task results
                 with self.task_lock:
                     self.task_results[task.id] = result
-                
-                return None
             
-            # Refresh the task status
-            codegen_task.refresh()
+            return None
+        
+        # Process the task result based on its status
+        result = self.task_results.get(task.id)
+        if not result:
+            return None
             
-            # Check if the task is completed
-            if codegen_task.status == "completed":
-                # Update task result
-                result.status = TaskStatus.COMPLETED
-                result.result = codegen_task.result
-                result.end_time = time.time()
-                result.duration = result.end_time - result.start_time
-                
-                # Update task results
-                with self.task_lock:
-                    self.task_results[task.id] = result
-                
-                return codegen_task.result
-            elif codegen_task.status in ["failed", "cancelled"]:
-                # Update task result
-                result.status = TaskStatus.FAILED
-                result.error = f"Codegen task failed: {codegen_task.status}"
-                result.end_time = time.time()
-                result.duration = result.end_time - result.start_time
-                
-                # Update task results
-                with self.task_lock:
-                    self.task_results[task.id] = result
-                
-                return None
+        if codegen_task.status == "completed":
+            # Update task result
+            result.status = TaskStatus.COMPLETED
+            result.result = codegen_task.result
+            result.end_time = time.time()
+            result.duration = result.end_time - result.start_time
             
-            # Wait before checking again
-            time.sleep(5)
-        
-        # Task timed out
-        result.status = TaskStatus.FAILED
-        result.error = "Task timed out"
-        result.end_time = time.time()
-        result.duration = result.end_time - result.start_time
-        
-        # Update task results
-        with self.task_lock:
-            self.task_results[task.id] = result
-        
-        return None
+            # Update task results
+            with self.task_lock:
+                self.task_results[task.id] = result
+            
+            return codegen_task.result
+        elif codegen_task.status in ["failed", "cancelled"]:
+            # Update task result
+            result.status = TaskStatus.FAILED
+            result.error = f"Codegen task failed: {codegen_task.status}"
+            result.end_time = time.time()
+            result.duration = result.end_time - result.start_time
+            
+            # Update task results
+            with self.task_lock:
+                self.task_results[task.id] = result
+            
+            return None
+        else:
+            # Task timed out or reached an unknown state
+            result.status = TaskStatus.FAILED
+            result.error = f"Task reached unexpected state: {codegen_task.status}"
+            result.end_time = time.time()
+            result.duration = result.end_time - result.start_time
+            
+            # Update task results
+            with self.task_lock:
+                self.task_results[task.id] = result
+            
+            return None
     
     def _start_task(self, task: AtomicTask) -> None:
         """
@@ -449,6 +450,106 @@ class ConcurrentExecutionEngine:
         
         # Submit the task to the executor
         self.executor.submit(self._execute_task, task)
+    
+    def _execute_task(self, task: AtomicTask) -> TaskResult:
+        """
+        Execute a task
+        
+        Args:
+            task: Task to execute
+            
+        Returns:
+            TaskResult: Result of the task
+        """
+        task_id = task.id
+        result = TaskResult(
+            id=task_id,
+            status=TaskStatus.RUNNING,
+            start_time=time.time()
+        )
+        
+        with self.task_lock:
+            self.task_results[task_id] = result
+        
+        try:
+            # Create a prompt for the task
+            prompt = self._create_task_prompt(task)
+            
+            # Execute the task using the Codegen agent
+            codegen_task = self.codegen_agent.create_task(prompt=prompt)
+            
+            # Use the helper to poll task status
+            codegen_task = poll_codegen_task_sync(codegen_task)
+            
+            # Process the result based on the task status
+            if codegen_task.status == "completed":
+                result.status = TaskStatus.COMPLETED
+                result.result = codegen_task.result
+            elif codegen_task.status in ["failed", "cancelled"]:
+                result.status = TaskStatus.FAILED
+                result.error = f"Codegen task failed: {codegen_task.status}"
+        except Exception as e:
+            result.status = TaskStatus.FAILED
+            result.error = str(e)
+            logger.error(f"Error executing task {task_id}: {e}", exc_info=True)
+        finally:
+            result.end_time = time.time()
+            result.duration = result.end_time - result.start_time
+            
+            with self.task_lock:
+                self.task_results[task_id] = result
+        
+        return result
+    
+    async def _execute_task_async(self, task: AtomicTask) -> TaskResult:
+        """
+        Execute a task asynchronously
+        
+        Args:
+            task: Task to execute
+            
+        Returns:
+            TaskResult: Result of the task
+        """
+        task_id = task.id
+        result = TaskResult(
+            id=task_id,
+            status=TaskStatus.RUNNING,
+            start_time=time.time()
+        )
+        
+        with self.task_lock:
+            self.task_results[task_id] = result
+        
+        try:
+            # Create a prompt for the task
+            prompt = self._create_task_prompt(task)
+            
+            # Execute the task using the Codegen agent
+            codegen_task = self.codegen_agent.create_task(prompt=prompt)
+            
+            # Use the helper to poll task status asynchronously
+            codegen_task = await poll_codegen_task_async(codegen_task)
+            
+            # Process the result based on the task status
+            if codegen_task.status == "completed":
+                result.status = TaskStatus.COMPLETED
+                result.result = codegen_task.result
+            elif codegen_task.status in ["failed", "cancelled"]:
+                result.status = TaskStatus.FAILED
+                result.error = f"Codegen task failed: {codegen_task.status}"
+        except Exception as e:
+            result.status = TaskStatus.FAILED
+            result.error = str(e)
+            logger.error(f"Error executing task {task_id}: {e}", exc_info=True)
+        finally:
+            result.end_time = time.time()
+            result.duration = result.end_time - result.start_time
+            
+            with self.task_lock:
+                self.task_results[task_id] = result
+        
+        return result
     
     def _create_dependency_graph(self, tasks: List[AtomicTask]) -> Dict[str, Set[str]]:
         """

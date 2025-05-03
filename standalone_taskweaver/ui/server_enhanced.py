@@ -18,8 +18,10 @@ import uvicorn
 from injector import inject
 
 from standalone_taskweaver.app.app import TaskWeaverApp
+from standalone_taskweaver.app.session_manager import SessionManager
 from standalone_taskweaver.config.config_mgt import AppConfigSource
 from standalone_taskweaver.logging import TelemetryLogger
+from standalone_taskweaver.module.tracing import Tracing
 from standalone_taskweaver.ui.taskweaver_ui_enhanced import TaskWeaverUIEnhanced
 
 # Set up logging
@@ -49,10 +51,21 @@ api_credentials = {
     "ngrok_token": "",
 }
 
-# Create TaskWeaver app
-taskweaver_app = TaskWeaverApp()
+# Create AppConfigSource
 config = AppConfigSource()
+
+# Create dependencies for TaskWeaver app
 telemetry_logger = TelemetryLogger(config)
+session_manager = SessionManager(config, telemetry_logger)
+tracing = Tracing(config, telemetry_logger)
+
+# Create TaskWeaver app with proper dependencies
+taskweaver_app = TaskWeaverApp(
+    config=config,
+    session_manager=session_manager,
+    logger=telemetry_logger,
+    tracing=tracing
+)
 
 # Create TaskWeaver UI
 ui = TaskWeaverUIEnhanced(taskweaver_app, config, telemetry_logger)
@@ -253,4 +266,3 @@ def run_server(host: str = "0.0.0.0", port: int = 8000):
 
 if __name__ == "__main__":
     run_server()
-

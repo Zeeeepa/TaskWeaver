@@ -229,6 +229,14 @@ class RequirementsManager:
         self.logger = logger
         self.requirements_path = Path(self.config.app_base_path) / "REQUIREMENTS.md"
         self.structure_path = Path(self.config.app_base_path) / "STRUCTURE.md"
+        self.atomic_tasks = []
+        self.dependency_graph = None
+        
+        # Create requirements file if it doesn't exist
+        if not os.path.exists(self.requirements_path):
+            self.create_requirements_file()
+            
+        logger.info("Requirements manager initialized")
         
     def create_requirements_file(self, content: str = None) -> None:
         """
@@ -954,4 +962,51 @@ This document outlines the structure of the project.
             contract_tasks.append(contract_task)
             
         return contract_tasks
-
+        
+    def get_atomic_tasks(self) -> List[AtomicTask]:
+        """
+        Get atomic tasks
+        
+        Returns:
+            List of atomic tasks
+        """
+        return self.atomic_tasks
+        
+    def get_atomic_tasks_dict(self) -> List[Dict[str, Any]]:
+        """
+        Get atomic tasks as a list of dictionaries
+        
+        Returns:
+            List of atomic tasks as dictionaries
+        """
+        return [task.to_dict() for task in self.atomic_tasks]
+        
+    def get_dependency_graph_dict(self) -> Dict[str, Any]:
+        """
+        Get dependency graph as a dictionary
+        
+        Returns:
+            Dependency graph as a dictionary
+        """
+        if self.dependency_graph:
+            return self.dependency_graph.to_dict()
+        return {"tasks": [], "graph": {}}
+    
+    def initialize(self) -> None:
+        """
+        Initialize the requirements manager
+        """
+        # Create requirements file if it doesn't exist
+        if not os.path.exists(self.requirements_path):
+            self.create_requirements_file()
+            
+        # Parse requirements
+        self.atomic_tasks = self.parse_requirements()
+        
+        # Create dependency graph
+        if self.atomic_tasks:
+            self.dependency_graph = self.identify_dependencies(self.atomic_tasks)
+        else:
+            self.dependency_graph = DependencyGraph()
+            
+        logger.info("Requirements manager initialized")

@@ -51,6 +51,9 @@ api_credentials = {
 # Store GitHub repositories
 github_repos = []
 
+# Store active tasks
+active_tasks = {}
+
 class TaskWeaverUI:
     """
     TaskWeaver UI class
@@ -94,40 +97,105 @@ class TaskWeaverUI:
             logger.error(f"Error initializing Codegen integration: {str(e)}")
             return False
             
-    def get_github_repos(self) -> List[str]:
+    def get_github_repos(self) -> List[Dict[str, Any]]:
         """
         Get list of GitHub repositories
         """
+        if not self.codegen_integration.is_initialized:
+            if not self.initialize_integration():
+                return []
+                
         return self.codegen_integration.get_repositories()
+        
+    def set_repository(self, repo_name: str) -> bool:
+        """
+        Set the active GitHub repository
+        """
+        if not self.codegen_integration.is_initialized:
+            if not self.initialize_integration():
+                return False
+                
+        return self.codegen_integration.set_repository(repo_name)
+        
+    def create_codegen_task(self, prompt: str, repo_name: Optional[str] = None) -> Optional[str]:
+        """
+        Create a Codegen task
+        """
+        if not self.codegen_integration.is_initialized:
+            if not self.initialize_integration():
+                return None
+                
+        return self.codegen_integration.create_codegen_task(prompt, repo_name)
+        
+    def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get the status of a Codegen task
+        """
+        if not self.codegen_integration.is_initialized:
+            if not self.initialize_integration():
+                return None
+                
+        return self.codegen_integration.get_task_status(task_id)
+        
+    def create_requirements_document(self, requirements: str) -> Dict[str, Any]:
+        """
+        Create or update a REQUIREMENTS.md file in the repository
+        """
+        if not self.codegen_integration.is_initialized:
+            if not self.initialize_integration():
+                return {"success": False, "error": "Codegen integration not initialized"}
+                
+        success, error = self.codegen_integration.create_requirements_document(requirements)
+        return {"success": success, "error": error}
+        
+    def start_workflow(self) -> bool:
+        """
+        Start the Codegen workflow
+        """
+        if not self.codegen_integration.is_initialized:
+            if not self.initialize_integration():
+                return False
+                
+        return self.codegen_integration.start_workflow()
+        
+    def stop_workflow(self) -> bool:
+        """
+        Stop the Codegen workflow
+        """
+        if not self.codegen_integration.is_initialized:
+            if not self.initialize_integration():
+                return False
+                
+        return self.codegen_integration.stop_workflow()
+        
+    def get_integration_status(self) -> Dict[str, Any]:
+        """
+        Get the status of the Codegen integration
+        """
+        if not self.codegen_integration.is_initialized:
+            return {
+                "initialized": False,
+                "github_connected": False,
+                "codegen_connected": False,
+                "ngrok_connected": False,
+                "workflow_manager": False,
+                "repository": None
+            }
+            
+        return self.codegen_integration.get_status()
 
 # Create TaskWeaverUI instance
-taskweaver_ui = None
+ui = TaskWeaverUI(None, None, None)
 
-@app.on_event("startup")
-async def startup_event():
-    """
-    Startup event handler
-    """
-    global taskweaver_ui
-    # In a real implementation, you would inject the TaskWeaverApp instance
-    # For now, we'll create a placeholder
-    taskweaver_ui = TaskWeaverUI(None, None, None)
-
+# API routes
 @app.get("/", response_class=HTMLResponse)
 async def get_index(request: Request):
     """
-    Get index page
+    Get the index page
     """
-    return templates.TemplateResponse(
-        "index.html",
-        {
-            "request": request,
-            "api_credentials": api_credentials,
-            "github_repos": github_repos
-        }
-    )
+    return templates.TemplateResponse("index.html", {"request": request})
 
-@app.post("/api/credentials")
+@app.post("/api/set_credentials")
 async def set_credentials(
     github_token: str = Form(...),
     codegen_token: str = Form(...),
@@ -137,89 +205,119 @@ async def set_credentials(
     """
     Set API credentials
     """
-    global api_credentials
+    api_credentials["github_token"] = github_token
+    api_credentials["codegen_token"] = codegen_token
+    api_credentials["ngrok_token"] = ngrok_token
+    api_credentials["codegen_org_id"] = codegen_org_id
     
-    api_credentials = {
-        "github_token": github_token,
-        "codegen_token": codegen_token,
-        "ngrok_token": ngrok_token,
-        "codegen_org_id": codegen_org_id
-    }
+    # Initialize Codegen integration
+    success = ui.initialize_integration()
     
-    # Initialize integration
-    if taskweaver_ui:
-        success = taskweaver_ui.initialize_integration()
-        if success:
-            # Get GitHub repositories
-            global github_repos
-            github_repos = taskweaver_ui.get_github_repos()
+    if success:
+        # Get GitHub repositories
+        global github_repos
+        github_repos = ui.get_github_repos()
+        
+    return {"success": success}
+
+@app.get("/api/get_repos")
+async def get_repos():
+    """
+    Get list of GitHub repositories
+    """
+    repos = ui.get_github_repos()
+    return {"repos": repos}
+
+@app.post("/api/set_repository")
+async def set_repository(repo_name: str = Form(...)):
+    """
+    Set the active GitHub repository
+    """
+    success = ui.set_repository(repo_name)
+    return {"success": success}
+
+@app.post("/api/create_task")
+async def create_task(prompt: str = Form(...), repo_name: Optional[str] = Form(None)):
+    """
+    Create a Codegen task
+    """
+    task_id = ui.create_codegen_task(prompt, repo_name)
+    
+    if task_id:
+        # Store task in active tasks
+        active_tasks[task_id] = {
+            "id": task_id,
+            "prompt": prompt,
+            "repo_name": repo_name,
+            "status": "created",
+            "created_at": None,
+            "updated_at": None,
+            "completed": False,
+            "result": None
+        }
+        
+        return {"success": True, "task_id": task_id}
+    else:
+        return {"success": False, "error": "Failed to create task"}
+
+@app.get("/api/get_task_status/{task_id}")
+async def get_task_status(task_id: str):
+    """
+    Get the status of a Codegen task
+    """
+    status = ui.get_task_status(task_id)
+    
+    if status:
+        # Update active task
+        if task_id in active_tasks:
+            active_tasks[task_id].update(status)
             
-            return JSONResponse(content={"status": "success", "message": "Credentials set successfully", "repos": github_repos})
-        else:
-            return JSONResponse(content={"status": "error", "message": "Failed to initialize Codegen integration with provided credentials"})
-    
-    return JSONResponse(content={"status": "error", "message": "TaskWeaverUI not initialized"})
+        return {"success": True, "status": status}
+    else:
+        return {"success": False, "error": "Failed to get task status"}
 
-@app.post("/api/select-repo")
-async def select_repo(repo_name: str = Form(...)):
+@app.get("/api/get_active_tasks")
+async def get_active_tasks():
     """
-    Select a GitHub repository
+    Get all active tasks
     """
-    if not taskweaver_ui or not taskweaver_ui.codegen_integration:
-        return JSONResponse(content={"status": "error", "message": "Codegen integration not initialized"})
-        
-    try:
-        # Set the repository
-        success = taskweaver_ui.codegen_integration.set_repository(repo_name)
-        
-        if success:
-            return JSONResponse(content={"status": "success", "message": f"Repository {repo_name} selected"})
-        else:
-            return JSONResponse(content={"status": "error", "message": "Failed to set repository"})
-    except Exception as e:
-        return JSONResponse(content={"status": "error", "message": f"Error selecting repository: {str(e)}"})
+    return {"success": True, "tasks": active_tasks}
 
-@app.post("/api/converse")
-async def converse(message: str = Form(...)):
+@app.post("/api/create_requirements")
+async def create_requirements(requirements: str = Form(...)):
     """
-    Converse with TaskWeaver
+    Create or update a REQUIREMENTS.md file in the repository
     """
-    if not taskweaver_ui:
-        return JSONResponse(content={"status": "error", "message": "TaskWeaverUI not initialized"})
-        
-    try:
-        # In a real implementation, you would use the TaskWeaver API to converse
-        # For now, we'll just return a placeholder response
-        
-        # Generate requirements documentation based on the conversation
-        requirements = f"# Requirements\n\n## Feature Request\n\n{message}\n\n## Implementation Plan\n\n1. Analyze the requirements\n2. Design the solution\n3. Implement the solution\n4. Test the implementation\n5. Deploy the solution"
-        
-        return JSONResponse(content={"status": "success", "message": "Conversation processed", "requirements": requirements})
-    except Exception as e:
-        return JSONResponse(content={"status": "error", "message": f"Error processing conversation: {str(e)}"})
+    result = ui.create_requirements_document(requirements)
+    return result
 
-@app.post("/api/prompt-codegen")
-async def prompt_codegen(requirements: str = Form(...)):
+@app.post("/api/start_workflow")
+async def start_workflow():
     """
-    Prompt Codegen agent with instructions
+    Start the Codegen workflow
     """
-    if not taskweaver_ui or not taskweaver_ui.codegen_integration:
-        return JSONResponse(content={"status": "error", "message": "Codegen integration not initialized"})
-        
-    try:
-        # Create a Codegen task
-        task_id = taskweaver_ui.codegen_integration.create_codegen_task(requirements)
-        
-        if task_id:
-            return JSONResponse(content={"status": "success", "message": "Codegen task created", "task_id": task_id})
-        else:
-            return JSONResponse(content={"status": "error", "message": "Failed to create Codegen task"})
-    except Exception as e:
-        return JSONResponse(content={"status": "error", "message": f"Error creating Codegen task: {str(e)}"})
+    success = ui.start_workflow()
+    return {"success": success}
+
+@app.post("/api/stop_workflow")
+async def stop_workflow():
+    """
+    Stop the Codegen workflow
+    """
+    success = ui.stop_workflow()
+    return {"success": success}
+
+@app.get("/api/get_integration_status")
+async def get_integration_status():
+    """
+    Get the status of the Codegen integration
+    """
+    status = ui.get_integration_status()
+    return {"success": True, "status": status}
 
 def run_server(host: str = "0.0.0.0", port: int = 8000):
     """
-    Run the web server
+    Run the server
     """
     uvicorn.run(app, host=host, port=port)
 

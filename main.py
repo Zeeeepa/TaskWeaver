@@ -67,6 +67,7 @@ def parse_args():
     common_group.add_argument("--debug", action="store_true", help="Enable debug logging")
     common_group.add_argument("--version", action="store_true", help="Display version information and exit")
     common_group.add_argument("--auto-install", action="store_true", help="Automatically install missing dependencies")
+    common_group.add_argument("--model", type=str, help="Override the model to use (e.g., gpt-4-turbo, gpt-4o)")
     
     return parser.parse_args()
 
@@ -87,7 +88,7 @@ def install_package(package: str) -> Tuple[bool, str]:
     except subprocess.CalledProcessError as e:
         return False, f"Failed to install {package}: {str(e)}"
 
-def launch_web_ui(host: str = "0.0.0.0", port: int = 8000, config_path: Optional[str] = None, auto_install: bool = False):
+def launch_web_ui(host: str = "0.0.0.0", port: int = 8000, config_path: Optional[str] = None, auto_install: bool = False, model: Optional[str] = None):
     """
     Launch the web UI
     
@@ -96,6 +97,7 @@ def launch_web_ui(host: str = "0.0.0.0", port: int = 8000, config_path: Optional
         port: Port to bind the web server to
         config_path: Path to configuration file
         auto_install: Whether to automatically install missing dependencies
+        model: Override the model to use
     """
     try:
         from standalone_taskweaver.ui.server import run_server
@@ -110,6 +112,11 @@ def launch_web_ui(host: str = "0.0.0.0", port: int = 8000, config_path: Optional
                 return 1
             os.environ["TASKWEAVER_CONFIG_PATH"] = config_path
             logger.info(f"Using configuration from {config_path}")
+        
+        # Override model if provided
+        if model:
+            os.environ["OPENAI_MODEL"] = model
+            logger.info(f"Using model: {model}")
         
         run_server(host=host, port=port)
         return 0
@@ -135,13 +142,14 @@ def launch_web_ui(host: str = "0.0.0.0", port: int = 8000, config_path: Optional
         logger.error(f"Error launching web UI: {str(e)}")
         return 1
 
-def launch_gui(config_path: Optional[str] = None, auto_install: bool = False):
+def launch_gui(config_path: Optional[str] = None, auto_install: bool = False, model: Optional[str] = None):
     """
     Launch the desktop GUI
     
     Args:
         config_path: Path to configuration file
         auto_install: Whether to automatically install missing dependencies
+        model: Override the model to use
     """
     try:
         from PyQt5.QtWidgets import QApplication
@@ -156,6 +164,11 @@ def launch_gui(config_path: Optional[str] = None, auto_install: bool = False):
                 return 1
             os.environ["TASKWEAVER_CONFIG_PATH"] = config_path
             logger.info(f"Using configuration from {config_path}")
+        
+        # Override model if provided
+        if model:
+            os.environ["OPENAI_MODEL"] = model
+            logger.info(f"Using model: {model}")
         
         app = QApplication(sys.argv)
         gui = TaskWeaverGUI()
@@ -184,7 +197,7 @@ def launch_gui(config_path: Optional[str] = None, auto_install: bool = False):
         return 1
 
 def launch_cli(project_dir: Optional[str] = None, interactive: bool = False, 
-               config_path: Optional[str] = None, auto_install: bool = False):
+               config_path: Optional[str] = None, auto_install: bool = False, model: Optional[str] = None):
     """
     Launch the CLI interface
     
@@ -193,6 +206,7 @@ def launch_cli(project_dir: Optional[str] = None, interactive: bool = False,
         interactive: Whether to run in interactive mode
         config_path: Path to configuration file
         auto_install: Whether to automatically install missing dependencies
+        model: Override the model to use
     """
     try:
         from taskweaver_launcher import TaskWeaverCLI
@@ -206,6 +220,11 @@ def launch_cli(project_dir: Optional[str] = None, interactive: bool = False,
                 return 1
             os.environ["TASKWEAVER_CONFIG_PATH"] = config_path
             logger.info(f"Using configuration from {config_path}")
+        
+        # Override model if provided
+        if model:
+            os.environ["OPENAI_MODEL"] = model
+            logger.info(f"Using model: {model}")
         
         cli = TaskWeaverCLI()
         
@@ -246,13 +265,14 @@ def launch_cli(project_dir: Optional[str] = None, interactive: bool = False,
         logger.error(f"Error launching CLI: {str(e)}")
         return 1
 
-def setup_environment(debug: bool = False, config_path: Optional[str] = None):
+def setup_environment(debug: bool = False, config_path: Optional[str] = None, model: Optional[str] = None):
     """
     Set up the environment for TaskWeaver
     
     Args:
         debug: Whether to enable debug logging
         config_path: Path to configuration file
+        model: Override the model to use
         
     Returns:
         bool: True if environment setup was successful, False otherwise
@@ -274,6 +294,11 @@ def setup_environment(debug: bool = False, config_path: Optional[str] = None):
             os.environ["TASKWEAVER_CONFIG_PATH"] = config_path
             logger.debug(f"Using configuration from {config_path}")
     
+    # Override model if provided
+    if model:
+        os.environ["OPENAI_MODEL"] = model
+        logger.debug(f"Using model: {model}")
+    
     # Check for required environment variables
     if not os.environ.get("OPENAI_API_KEY"):
         logger.warning("OPENAI_API_KEY environment variable not set")
@@ -284,7 +309,7 @@ def setup_environment(debug: bool = False, config_path: Optional[str] = None):
     if not os.environ.get("OPENAI_API_BASE"):
         logger.debug("OPENAI_API_BASE not set, using default OpenAI API endpoint")
     
-    if not os.environ.get("OPENAI_MODEL"):
+    if not os.environ.get("OPENAI_MODEL") and not model:
         logger.debug("OPENAI_MODEL not set, using default model")
     
     return True
@@ -310,7 +335,7 @@ def main():
         return 0
     
     # Set up environment
-    env_setup_success = setup_environment(debug=args.debug, config_path=args.config)
+    env_setup_success = setup_environment(debug=args.debug, config_path=args.config, model=args.model)
     if not env_setup_success and args.config:
         logger.error(f"Failed to set up environment with config file: {args.config}")
         return 1
@@ -327,16 +352,16 @@ def main():
     
     # Launch the appropriate UI
     if args.web:
-        return launch_web_ui(host=args.host, port=args.port, config_path=args.config, auto_install=args.auto_install)
+        return launch_web_ui(host=args.host, port=args.port, config_path=args.config, auto_install=args.auto_install, model=args.model)
     elif args.gui:
-        return launch_gui(config_path=args.config, auto_install=args.auto_install)
+        return launch_gui(config_path=args.config, auto_install=args.auto_install, model=args.model)
     elif args.cli:
         return launch_cli(project_dir=args.project, interactive=args.interactive, 
-                         config_path=args.config, auto_install=args.auto_install)
+                         config_path=args.config, auto_install=args.auto_install, model=args.model)
     else:
         # Default to web UI if no mode specified
         logger.info("No UI mode specified, defaulting to web UI")
-        return launch_web_ui(host=args.host, port=args.port, config_path=args.config, auto_install=args.auto_install)
+        return launch_web_ui(host=args.host, port=args.port, config_path=args.config, auto_install=args.auto_install, model=args.model)
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -114,7 +114,7 @@ class CodegenAgent:
             self.codegen_token = codegen_token
             
             # Initialize Codegen client
-            self.codegen_client = CodegenClient(base_url="https://api.codegen.sh")
+            self.codegen_client = CodegenClient(base_url="https://api.codegen.sh", api_key=codegen_token)
             self.agent = Agent(api_key=codegen_token)
             
             # Initialize components

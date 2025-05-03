@@ -18,8 +18,6 @@ TaskWeaver is designed to break down complex tasks into manageable steps, genera
 
 ### 3. Code Interpreter Module
 - `CodeInterpreter`: Executes and verifies code
-- `CodeGenerator`: Generates code based on plans
-- `CodeExecutor`: Handles code execution
 
 ### 4. Memory Module
 - `Memory`: Stores conversation history
@@ -46,6 +44,41 @@ TaskWeaver is designed to break down complex tasks into manageable steps, genera
 - `ModuleConfig`: Base class for module configurations
 
 ## Usage
+
+### Quick Start with the Launcher
+
+TaskWeaver now includes a unified launcher script (`main.py`) that provides a simple way to start the application in different UI modes:
+
+```bash
+# Launch the web UI (default)
+python main.py
+
+# Launch the web UI with custom host and port
+python main.py --web --host 127.0.0.1 --port 8080
+
+# Launch the desktop GUI
+python main.py --gui
+
+# Launch the CLI interface with a project directory
+python main.py --cli --project /path/to/project
+
+# Launch the CLI in interactive mode
+python main.py --cli --project /path/to/project --interactive
+
+# Enable automatic dependency installation
+python main.py --auto-install
+
+# Use a custom configuration file
+python main.py --config /path/to/config.json
+
+# Enable debug logging
+python main.py --debug
+
+# Display version information
+python main.py --version
+```
+
+### Programmatic Usage
 
 ```python
 import os
@@ -130,4 +163,3 @@ session.close()
 This standalone implementation focuses on preserving the core functionality of TaskWeaver while simplifying the interface. It includes all necessary dependencies and components to provide a complete TaskWeaver experience.
 
 The implementation is designed to be modular and extensible, allowing for easy customization and integration with other systems.
-

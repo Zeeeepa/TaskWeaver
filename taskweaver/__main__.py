@@ -1,17 +1,55 @@
 #!/usr/bin/env python3
 """
 TaskWeaver main entry point
+
+This module provides the main entry point for the TaskWeaver package when executed
+directly using `python -m taskweaver`. It supports the following command-line options:
+
+CLI Options:
+    --web: Launch the web interface (default)
+        --host: Specify the host address (default: 0.0.0.0)
+        --port: Specify the port number (default: 8000)
+    
+    --gui: Launch the desktop GUI interface
+    
+    --cli: Launch the command-line interface
+        --project: Specify the project directory
+        --interactive: Enable interactive mode
+    
+    --config: Specify a custom configuration file path
+    
+    --debug: Enable debug logging
+    
+    --version: Display version information
+
+Examples:
+    python -m taskweaver --web --port 8080
+    python -m taskweaver --gui
+    python -m taskweaver --cli --project ./my_project --interactive
 """
 
 import sys
-from main import main as main_func
+import importlib.util
+from pathlib import Path
+
+# Dynamically import main.py from the package root
+spec = importlib.util.spec_from_file_location(
+    "main", 
+    str(Path(__file__).parent.parent / "main.py")
+)
+main_module = importlib.util.module_from_spec(spec)
+sys.modules["main"] = main_module
+spec.loader.exec_module(main_module)
+main_func = main_module.main
 
 def main():
     """
     Main entry point for the taskweaver package
+    
+    Parses command-line arguments and launches the appropriate interface.
+    Returns the exit code from the main function.
     """
     sys.exit(main_func())
 
 if __name__ == "__main__":
     main()
-

@@ -314,3 +314,80 @@ class CodegenIntegration:
             error_msg = f"Error creating requirements document: {str(e)}"
             self.logger.error(error_msg)
             return False, error_msg
+            
+    def parse_requirements_document(self) -> Optional[Dict[str, Any]]:
+        """
+        Parse the REQUIREMENTS.md file from the repository
+        
+        Returns:
+            Optional[Dict[str, Any]]: Parsed requirements if successful, None otherwise
+        """
+        if not self.github_manager or not self.codegen_config.repo_name:
+            self.logger.error("GitHub manager not initialized or repository not set")
+            return None
+            
+        try:
+            repo = self.github_manager.github_client.get_repo(self.codegen_config.repo_name)
+            
+            # Get the file content
+            try:
+                contents = repo.get_contents("REQUIREMENTS.md")
+                content = contents.decoded_content.decode("utf-8")
+                
+                # Parse the content
+                # Import here to avoid circular imports
+                from standalone_taskweaver.codegen_agent.requirements_manager import RequirementsManager
+                
+                # Use the existing requirements_manager if available
+                if hasattr(self, '_requirements_manager'):
+                    requirements_manager = self._requirements_manager
+                else:
+                    requirements_manager = RequirementsManager(self.app, self.config, self.logger, self)
+                    # Cache the requirements manager for future use
+                    self._requirements_manager = requirements_manager
+                
+                parsed_requirements = requirements_manager.parse_requirements_document(content)
+                
+                return parsed_requirements
+            except Exception as e:
+                self.logger.error(f"Error getting requirements document: {str(e)}")
+                return None
+        except Exception as e:
+            self.logger.error(f"Error parsing requirements document: {str(e)}")
+            return None
+            
+    def generate_concurrent_queries(self, phase: int = 1) -> List[str]:
+        """
+        Generate concurrent queries for a specific phase
+        
+        Args:
+            phase: Phase number (1-based)
+            
+        Returns:
+            List[str]: List of queries
+        """
+        try:
+            # Parse the requirements document
+            parsed_requirements = self.parse_requirements_document()
+            
+            if not parsed_requirements:
+                self.logger.error("Failed to parse requirements document")
+                return []
+                
+            # Generate queries
+            # Use the existing requirements_manager if available
+            if hasattr(self, '_requirements_manager'):
+                requirements_manager = self._requirements_manager
+            else:
+                # Import here to avoid circular imports
+                from standalone_taskweaver.codegen_agent.requirements_manager import RequirementsManager
+                requirements_manager = RequirementsManager(self.app, self.config, self.logger, self)
+                # Cache the requirements manager for future use
+                self._requirements_manager = requirements_manager
+                
+            queries = requirements_manager.generate_concurrent_queries(parsed_requirements, phase)
+            
+            return queries
+        except Exception as e:
+            self.logger.error(f"Error generating concurrent queries: {str(e)}")
+            return []

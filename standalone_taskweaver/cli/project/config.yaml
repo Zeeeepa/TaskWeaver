@@ -1,0 +1,32 @@
+# TaskWeaver Configuration
+
+# Application settings
+app:
+  name: TaskWeaver
+  version: 0.0.12a0
+  debug: false
+  port: 8000
+  host: 127.0.0.1
+
+# API settings
+api:
+  openai:
+    api_key: ${OPENAI_API_KEY}
+    model: gpt-4-turbo
+  codegen:
+    api_key: ${CODEGEN_API_KEY}
+    endpoint: https://api.codegen.sh
+
+# Logging settings
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: logs/taskweaver.log
+
+# UI settings
+ui:
+  theme: light
+  language: en
+  enable_web_ui: true
+  enable_desktop_ui: true
+

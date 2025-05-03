@@ -1,11 +1,8 @@
 """
-App module for TaskWeaver.
-
-This module contains the main application functionality.
+TaskWeaver app module.
 """
 
-from standalone_taskweaver.app.app import TaskWeaverApp
-from standalone_taskweaver.app.session_manager import SessionManager
+from .app import TaskWeaverApp, create_app
 
-__all__ = ["TaskWeaverApp", "SessionManager"]
+__all__ = ["TaskWeaverApp", "create_app"]
 

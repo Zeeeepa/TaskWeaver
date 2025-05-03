@@ -13,10 +13,11 @@ from injector import inject
 from standalone_taskweaver.app.app import TaskWeaverApp
 from standalone_taskweaver.config.config_mgt import AppConfigSource
 from standalone_taskweaver.logging import TelemetryLogger
-from standalone_taskweaver.codegen_agent.integration import CodegenIntegration
-from standalone_taskweaver.codegen_agent.bidirectional_context import BidirectionalContext
-from standalone_taskweaver.codegen_agent.advanced_api import CodegenAdvancedAPI
-from standalone_taskweaver.codegen_agent.planner_integration import CodegenPlannerIntegration
+from standalone_taskweaver.integration.codegen_integration import CodegenIntegration
+from standalone_taskweaver.integration.bidirectional_context import BidirectionalContext
+from standalone_taskweaver.integration.advanced_api import AdvancedAPI
+from standalone_taskweaver.integration.planner_integration import PlannerIntegration
+from standalone_taskweaver.integration.requirements_manager import RequirementsManager
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -39,19 +40,19 @@ class TaskWeaverUI:
         self.logger = logger
         
         # Initialize components
-        self.codegen_integration = CodegenIntegration(app, config, logger)
-        self.context_manager = BidirectionalContext(app, config, logger, None)
+        self.codegen_integration = None
+        self.context_manager = None
         self.advanced_api = None
         self.planner_integration = None
-        
-        # Initialize context manager
-        self.context_manager.initialize()
+        self.requirements_manager = None
+        self.is_initialized = False
         
     def initialize_integration(self, 
                               github_token: str,
                               codegen_token: str,
                               ngrok_token: str,
-                              codegen_org_id: str) -> bool:
+                              codegen_org_id: str,
+                              repo_name: Optional[str] = None) -> bool:
         """
         Initialize Codegen integration with API credentials
         
@@ -60,22 +61,34 @@ class TaskWeaverUI:
             codegen_token: Codegen API token
             ngrok_token: ngrok API token
             codegen_org_id: Codegen organization ID
+            repo_name: Optional repository name
             
         Returns:
             bool: True if initialization was successful, False otherwise
         """
         try:
             # Initialize Codegen integration
+            self.codegen_integration = CodegenIntegration(self.app, self.config, self.logger)
             success = self.codegen_integration.initialize(
                 github_token=github_token,
                 codegen_token=codegen_token,
                 ngrok_token=ngrok_token,
-                codegen_org_id=codegen_org_id
+                codegen_org_id=codegen_org_id,
+                repo_name=repo_name
             )
             
             if success:
+                # Initialize context manager
+                self.context_manager = BidirectionalContext(
+                    self.app,
+                    self.config,
+                    self.logger,
+                    self.codegen_integration
+                )
+                self.context_manager.initialize()
+                
                 # Initialize advanced API
-                self.advanced_api = CodegenAdvancedAPI(
+                self.advanced_api = AdvancedAPI(
                     self.app,
                     self.config,
                     self.logger,
@@ -84,26 +97,35 @@ class TaskWeaverUI:
                 )
                 
                 # Initialize planner integration
-                self.planner_integration = CodegenPlannerIntegration(
+                self.planner_integration = PlannerIntegration(
                     self.app,
                     self.config,
                     self.logger,
                     self.codegen_integration
                 )
+                
+                # Initialize requirements manager
+                self.requirements_manager = RequirementsManager(
+                    self.app,
+                    self.config,
+                    self.logger
+                )
+                
+                self.is_initialized = True
             
             return success
         except Exception as e:
             self.logger.error(f"Error initializing Codegen integration: {str(e)}")
             return False
             
-    def get_github_repos(self) -> List[Dict[str, Any]]:
+    def get_github_repos(self) -> List[str]:
         """
         Get list of GitHub repositories
         
         Returns:
-            List[Dict[str, Any]]: List of GitHub repositories
+            List[str]: List of GitHub repositories
         """
-        if not self.codegen_integration.is_initialized:
+        if not self.is_initialized or not self.codegen_integration:
             return []
                 
         return self.codegen_integration.get_repositories()
@@ -118,7 +140,7 @@ class TaskWeaverUI:
         Returns:
             bool: True if successful, False otherwise
         """
-        if not self.codegen_integration.is_initialized:
+        if not self.is_initialized or not self.codegen_integration:
             return False
                 
         return self.codegen_integration.set_repository(repo_name)
@@ -134,7 +156,7 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Task information
         """
-        if not self.codegen_integration.is_initialized:
+        if not self.is_initialized or not self.codegen_integration:
             return {"success": False, "error": "Codegen integration not initialized"}
                 
         task_id = self.codegen_integration.create_codegen_task(prompt, repo_name)
@@ -159,7 +181,7 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Task status
         """
-        if not self.codegen_integration.is_initialized:
+        if not self.is_initialized or not self.codegen_integration:
             return {"success": False, "error": "Codegen integration not initialized"}
                 
         status = self.codegen_integration.get_task_status(task_id)
@@ -179,7 +201,7 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: List of tasks
         """
-        if not self.codegen_integration.is_initialized:
+        if not self.is_initialized or not self.codegen_integration:
             return {"success": False, "error": "Codegen integration not initialized", "tasks": []}
         
         # This is a placeholder since the current integration doesn't support listing tasks
@@ -196,10 +218,20 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Result of the operation
         """
-        if not self.codegen_integration.is_initialized:
+        if not self.is_initialized or not self.codegen_integration:
             return {"success": False, "error": "Codegen integration not initialized"}
+        
+        if not self.requirements_manager:
+            return {"success": False, "error": "Requirements manager not initialized"}
                 
-        success, error = self.codegen_integration.create_requirements_document(requirements)
+        # Parse requirements
+        parsed_requirements = self.requirements_manager.parse_requirements(requirements)
+        
+        # Generate Markdown
+        markdown = self.requirements_manager.generate_requirements_markdown(parsed_requirements)
+        
+        # Create or update the file in the repository
+        success, error = self.codegen_integration.create_requirements_document(markdown)
         return {"success": success, "error": error}
         
     def start_workflow(self) -> Dict[str, Any]:
@@ -209,7 +241,7 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Result of the operation
         """
-        if not self.codegen_integration.is_initialized:
+        if not self.is_initialized or not self.codegen_integration:
             return {"success": False, "error": "Codegen integration not initialized"}
                 
         success = self.codegen_integration.start_workflow()
@@ -222,7 +254,7 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Result of the operation
         """
-        if not self.codegen_integration.is_initialized:
+        if not self.is_initialized or not self.codegen_integration:
             return {"success": False, "error": "Codegen integration not initialized"}
                 
         success = self.codegen_integration.stop_workflow()
@@ -235,7 +267,7 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Integration status
         """
-        if not self.codegen_integration.is_initialized:
+        if not self.is_initialized or not self.codegen_integration:
             return {
                 "success": True,
                 "initialized": False,
@@ -246,14 +278,17 @@ class TaskWeaverUI:
                 "repository": None,
                 "advanced_api": False,
                 "planner_integration": False,
-                "context_manager": True
+                "context_manager": False,
+                "requirements_manager": False
             }
             
         status = self.codegen_integration.get_status()
         status["success"] = True
+        status["initialized"] = self.is_initialized
         status["advanced_api"] = self.advanced_api is not None
         status["planner_integration"] = self.planner_integration is not None
-        status["context_manager"] = True
+        status["context_manager"] = self.context_manager is not None
+        status["requirements_manager"] = self.requirements_manager is not None
         
         return status
     
@@ -270,7 +305,7 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Generated code
         """
-        if not self.advanced_api:
+        if not self.is_initialized or not self.advanced_api:
             return {"success": False, "error": "Advanced API not initialized"}
         
         return self.advanced_api.generate_code(prompt, language)
@@ -286,7 +321,7 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Analysis result
         """
-        if not self.advanced_api:
+        if not self.is_initialized or not self.advanced_api:
             return {"success": False, "error": "Advanced API not initialized"}
         
         return self.advanced_api.analyze_code(code, language)
@@ -303,7 +338,7 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Refactored code
         """
-        if not self.advanced_api:
+        if not self.is_initialized or not self.advanced_api:
             return {"success": False, "error": "Advanced API not initialized"}
         
         return self.advanced_api.refactor_code(code, language, instructions)
@@ -319,7 +354,7 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Generated tests
         """
-        if not self.advanced_api:
+        if not self.is_initialized or not self.advanced_api:
             return {"success": False, "error": "Advanced API not initialized"}
         
         return self.advanced_api.generate_tests(code, language)
@@ -336,7 +371,7 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Result of the operation
         """
-        if not self.planner_integration:
+        if not self.is_initialized or not self.planner_integration:
             return {"success": False, "error": "Planner integration not initialized"}
         
         is_code_related = self.planner_integration.is_code_related_task(task_description)
@@ -353,7 +388,7 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Result of the Codegen task
         """
-        if not self.planner_integration:
+        if not self.is_initialized or not self.planner_integration:
             return {"success": False, "error": "Planner integration not initialized"}
         
         return self.planner_integration.delegate_to_codegen(task_description, context)
@@ -367,6 +402,9 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Shared context
         """
+        if not self.is_initialized or not self.context_manager:
+            return {"success": True, "context": {}}
+            
         return {"success": True, "context": self.context_manager.get_shared_context()}
     
     def update_taskweaver_context(self, context_update: Dict[str, Any]) -> Dict[str, Any]:
@@ -379,6 +417,9 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Result of the operation
         """
+        if not self.is_initialized or not self.context_manager:
+            return {"success": False, "error": "Context manager not initialized"}
+            
         try:
             self.context_manager.update_taskweaver_context(context_update)
             return {"success": True}
@@ -395,6 +436,9 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Result of the operation
         """
+        if not self.is_initialized or not self.context_manager:
+            return {"success": False, "error": "Context manager not initialized"}
+            
         try:
             self.context_manager.update_codegen_context(context_update)
             return {"success": True}
@@ -411,6 +455,9 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Result of the operation
         """
+        if not self.is_initialized or not self.context_manager:
+            return {"success": False, "error": "Context manager not initialized"}
+            
         try:
             self.context_manager.add_issue_to_context(issue_number)
             return {"success": True}
@@ -427,6 +474,9 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Result of the operation
         """
+        if not self.is_initialized or not self.context_manager:
+            return {"success": False, "error": "Context manager not initialized"}
+            
         try:
             self.context_manager.add_pr_to_context(pr_number)
             return {"success": True}
@@ -443,9 +493,11 @@ class TaskWeaverUI:
         Returns:
             Dict[str, Any]: Result of the operation
         """
+        if not self.is_initialized or not self.context_manager:
+            return {"success": False, "error": "Context manager not initialized"}
+            
         try:
             self.context_manager.add_file_to_context(file_path)
             return {"success": True}
         except Exception as e:
             return {"success": False, "error": str(e)}
-

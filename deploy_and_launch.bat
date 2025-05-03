@@ -1,49 +1,29 @@
 @echo off
-echo ===================================================
-echo TaskWeaver Deployment and Launch Script
-echo ===================================================
+REM TaskWeaver deployment and launch script for Windows
 
-echo.
-echo [1/4] Checking for Python installation...
-python --version > nul 2>&1
-if %errorlevel% neq 0 (
-    echo ERROR: Python is not installed or not in PATH.
-    echo Please install Python 3.8 or higher from https://www.python.org/downloads/
-    pause
-    exit /b 1
-)
+REM Set up virtual environment
+echo Setting up virtual environment...
+python -m venv venv
+call venv\Scripts\activate.bat
 
-echo.
-echo [2/4] Pulling latest changes from Git repository...
-git pull
-if %errorlevel% neq 0 (
-    echo WARNING: Failed to pull latest changes from Git repository.
-    echo You may not have the latest version of TaskWeaver.
-    echo Press any key to continue anyway or Ctrl+C to abort.
-    pause > nul
-)
+REM Install dependencies
+echo Installing dependencies...
+pip install --upgrade pip setuptools wheel
+pip install -e .
 
-echo.
-echo [3/4] Installing/updating dependencies...
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-if %errorlevel% neq 0 (
-    echo ERROR: Failed to install dependencies.
-    pause
-    exit /b 1
-)
+REM Create logs directory
+echo Creating logs directory...
+if not exist logs mkdir logs
 
-echo.
-echo [4/4] Launching TaskWeaver Web UI...
-echo.
-echo TaskWeaver is starting...
-echo You can access the web interface at http://localhost:8000 once it's running.
-echo Press Ctrl+C to stop TaskWeaver when you're done.
-echo.
+REM Set environment variables
+echo Setting environment variables...
+set PYTHONPATH=%CD%
+set TASKWEAVER_CONFIG=%CD%\standalone_taskweaver\cli\project\config.yaml
 
-python main.py --web --auto-install
+REM Launch TaskWeaver
+echo Launching TaskWeaver...
+python -m standalone_taskweaver --debug
 
-echo.
-echo TaskWeaver has been stopped.
-pause
+REM Deactivate virtual environment on exit
+deactivate
 

@@ -7,7 +7,7 @@ import json
 import logging
 from typing import Dict, List, Optional, Any, Union
 
-from fastapi import FastAPI, HTTPException, Depends, Request, Form
+from fastapi import FastAPI, HTTPException, Depends, Request, Form, File, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -18,9 +18,11 @@ from injector import inject
 from standalone_taskweaver.app.app import TaskWeaverApp
 from standalone_taskweaver.config.config_mgt import AppConfigSource
 from standalone_taskweaver.logging import TelemetryLogger
-from standalone_taskweaver.codegen_agent.integration import CodegenIntegration
-from standalone_taskweaver.codegen_agent.bidirectional_context import BidirectionalContext
-from standalone_taskweaver.codegen_agent.advanced_api import CodegenAdvancedAPI
+from standalone_taskweaver.integration.codegen_integration import CodegenIntegration
+from standalone_taskweaver.integration.bidirectional_context import BidirectionalContext
+from standalone_taskweaver.integration.advanced_api import AdvancedAPI
+from standalone_taskweaver.integration.planner_integration import PlannerIntegration
+from standalone_taskweaver.integration.requirements_manager import RequirementsManager
 from standalone_taskweaver.ui.taskweaver_ui import TaskWeaverUI
 
 # Set up logging
@@ -136,6 +138,80 @@ async def get_codegen_status():
     ui = get_ui()
     status = ui.get_integration_status()
     return status
+
+@app.post("/api/credentials")
+async def set_credentials(
+    github_token: str = Form(...),
+    codegen_token: str = Form(...),
+    ngrok_token: str = Form(...),
+    codegen_org_id: str = Form(...)
+):
+    """
+    Set API credentials
+    """
+    ui = get_ui()
+    
+    # Update API credentials
+    api_credentials["github_token"] = github_token
+    api_credentials["codegen_token"] = codegen_token
+    api_credentials["ngrok_token"] = ngrok_token
+    api_credentials["codegen_org_id"] = codegen_org_id
+    
+    # Initialize Codegen integration
+    success = ui.initialize_integration(
+        github_token=github_token,
+        codegen_token=codegen_token,
+        ngrok_token=ngrok_token,
+        codegen_org_id=codegen_org_id
+    )
+    
+    if success:
+        # Get GitHub repositories
+        repos = ui.get_github_repos()
+        return {"status": "success", "repos": repos}
+    else:
+        return {"status": "error", "message": "Failed to initialize Codegen integration"}
+
+@app.post("/api/select-repo")
+async def select_repo(repo_name: str = Form(...)):
+    """
+    Select a GitHub repository
+    """
+    ui = get_ui()
+    success = ui.set_repository(repo_name)
+    
+    if success:
+        return {"status": "success"}
+    else:
+        return {"status": "error", "message": "Failed to select repository"}
+
+@app.post("/api/converse")
+async def converse(message: str = Form(...)):
+    """
+    Converse with TaskWeaver
+    """
+    ui = get_ui()
+    
+    # Process the message and update requirements
+    # This is a placeholder for the actual conversation logic
+    requirements = f"# Requirements\n\n- Implement {message}\n  This is a placeholder for the actual requirements.\n"
+    
+    return {"status": "success", "requirements": requirements}
+
+@app.post("/api/prompt-codegen")
+async def prompt_codegen(requirements: str = Form(...)):
+    """
+    Prompt Codegen agent with requirements
+    """
+    ui = get_ui()
+    
+    # Create a Codegen task with the requirements
+    result = ui.create_codegen_task(requirements)
+    
+    if result.get("success", False):
+        return {"status": "success", "task_id": result.get("task_id")}
+    else:
+        return {"status": "error", "message": result.get("error", "Failed to create Codegen task")}
 
 @app.post("/api/codegen/initialize")
 async def initialize_codegen(request: InitializeRequest):
@@ -353,12 +429,58 @@ async def stop_workflow():
     ui = get_ui()
     return ui.stop_workflow()
 
-def run_server(host: str = "0.0.0.0", port: int = 8000):
+@app.post("/api/upload-file")
+async def upload_file(file: UploadFile = File(...)):
+    """
+    Upload a file to the server
+    """
+    try:
+        # Read the file content
+        content = await file.read()
+        
+        # Create a temporary file
+        temp_dir = os.path.join(current_dir, "temp")
+        os.makedirs(temp_dir, exist_ok=True)
+        
+        file_path = os.path.join(temp_dir, file.filename)
+        
+        # Write the file
+        with open(file_path, "wb") as f:
+            f.write(content)
+            
+        return {"status": "success", "filename": file.filename, "path": file_path}
+    except Exception as e:
+        logger.error(f"Error uploading file: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
+def run_server(host: str = "0.0.0.0", port: int = 8000, public: bool = False):
     """
     Run the server
+    
+    Args:
+        host: Host to bind the server to
+        port: Port to bind the server to
+        public: Whether to make the server publicly accessible via ngrok
     """
+    if public:
+        try:
+            from pyngrok import ngrok
+            
+            # Get ngrok token from environment
+            ngrok_token = os.environ.get("NGROK_TOKEN")
+            if ngrok_token:
+                ngrok.set_auth_token(ngrok_token)
+                
+            # Start ngrok tunnel
+            public_url = ngrok.connect(port)
+            logger.info(f"Public URL: {public_url}")
+        except ImportError:
+            logger.warning("pyngrok not installed. Cannot create public URL.")
+            logger.warning("Install pyngrok with: pip install pyngrok")
+        except Exception as e:
+            logger.error(f"Error starting ngrok tunnel: {str(e)}")
+            
     uvicorn.run(app, host=host, port=port)
 
 if __name__ == "__main__":
     run_server()
-

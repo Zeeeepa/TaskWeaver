@@ -1,102 +1,90 @@
+#!/usr/bin/env python3
+"""
+Main application module for TaskWeaver.
+"""
+
 import os
-from typing import Dict, Optional
-
-from injector import Injector, inject
-
-from standalone_taskweaver.app.session_manager import SessionManager
-from standalone_taskweaver.config.config_mgt import AppConfigSource
-from standalone_taskweaver.logging import TelemetryLogger
-from standalone_taskweaver.memory import Memory
-from standalone_taskweaver.module.tracing import Tracing
-from standalone_taskweaver.session.session import Session, SessionMetadata
+import sys
+import argparse
+from typing import Dict, Any, Optional
 
 
 class TaskWeaverApp:
     """
-    TaskWeaverApp is the main application class.
+    Main application class for TaskWeaver.
     """
 
-    @inject
-    def __init__(
-        self,
-        config: AppConfigSource,
-        session_manager: SessionManager,
-        logger: TelemetryLogger,
-        tracing: Tracing,
-    ) -> None:
-        self.config = config
-        self.session_manager = session_manager
-        self.logger = logger
-        self.tracing = tracing
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        """
+        Initialize the TaskWeaver application.
 
-        self.logger.info("TaskWeaverApp initialized successfully")
+        Args:
+            config: Optional configuration dictionary.
+        """
+        self.config = config or {}
+        self.initialized = False
 
-    def create_session(
-        self,
-        session_id: Optional[str] = None,
-        session_name: Optional[str] = None,
-        session_dir: Optional[str] = None,
-        session_variables: Optional[Dict[str, str]] = None,
-    ) -> Session:
+    def initialize(self) -> None:
         """
-        Create a session.
-        :param session_id: The session ID.
-        :param session_name: The session name.
-        :param session_dir: The session directory.
-        :param session_variables: The session variables.
-        :return: The session.
+        Initialize the application.
         """
-        if session_dir is None:
-            session_dir = os.path.join(self.config.app_base_path, "sessions")
-        if not os.path.exists(session_dir):
-            os.makedirs(session_dir)
+        self.initialized = True
 
-        session = self.session_manager.create_session(
-            session_id=session_id,
-            session_name=session_name,
-            session_dir=session_dir,
-            session_variables=session_variables,
-        )
-        return session
+    def run(self) -> None:
+        """
+        Run the application.
+        """
+        if not self.initialized:
+            self.initialize()
+        
+        print("TaskWeaver application is running.")
 
-    def get_session(self, session_id: str) -> Optional[Session]:
-        """
-        Get a session.
-        :param session_id: The session ID.
-        :return: The session.
-        """
-        return self.session_manager.get_session(session_id)
 
-    def list_sessions(self) -> Dict[str, Session]:
-        """
-        List all sessions.
-        :return: The sessions.
-        """
-        return self.session_manager.list_sessions()
+def create_app(config: Optional[Dict[str, Any]] = None) -> TaskWeaverApp:
+    """
+    Create and initialize a TaskWeaver application.
 
-    def delete_session(self, session_id: str) -> bool:
-        """
-        Delete a session.
-        :param session_id: The session ID.
-        :return: Whether the session was deleted.
-        """
-        return self.session_manager.delete_session(session_id)
+    Args:
+        config: Optional configuration dictionary.
 
-    def chat(
-        self,
-        session_id: str,
-        message: str,
-    ) -> str:
-        """
-        Chat with a session.
-        :param session_id: The session ID.
-        :param message: The message.
-        :return: The response.
-        """
-        session = self.get_session(session_id)
-        if session is None:
-            raise ValueError(f"Session {session_id} not found")
+    Returns:
+        An initialized TaskWeaver application.
+    """
+    app = TaskWeaverApp(config)
+    app.initialize()
+    return app
 
-        response = session.chat(message)
-        return response
+
+def main() -> None:
+    """
+    Main entry point for the TaskWeaver application.
+    """
+    parser = argparse.ArgumentParser(description="TaskWeaver: A code-first agent framework for data analytics tasks")
+    parser.add_argument("--config", help="Path to configuration file")
+    parser.add_argument("--port", help="Port to run the web server on")
+    parser.add_argument("--host", help="Host to run the web server on")
+    parser.add_argument("--debug", action="store_true", help="Run in debug mode")
+    
+    args = parser.parse_args()
+    
+    config = {}
+    if args.config:
+        # Load configuration from file
+        config["config_path"] = args.config
+    
+    if args.port:
+        config["port"] = args.port
+    
+    if args.host:
+        config["host"] = args.host
+    
+    if args.debug:
+        config["debug"] = True
+    
+    app = create_app(config)
+    app.run()
+
+
+if __name__ == "__main__":
+    main()
 

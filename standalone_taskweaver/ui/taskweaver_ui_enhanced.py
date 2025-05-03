@@ -48,32 +48,17 @@ class TaskWeaverUIEnhanced:
         # Initialize components
         self.requirements_manager = RequirementsManager(app, config, logger)
         self.context_manager = ConcurrentContextManager(app, config, logger, self.memory)
-        self.execution_engine = ConcurrentExecutionEngine(app, config, logger, self.memory)
-        self.codegen_agent = CodegenAgent(
-            app, 
-            config, 
-            logger, 
-            requirements_manager=self.requirements_manager,
-            context_manager=self.context_manager,
-            execution_engine=self.execution_engine,
-        )
+        self.execution_engine = ConcurrentExecutionEngine(app, config, logger, self.context_manager)
         
-        # Chat history
+        # Initialize state
         self.chat_history = []
-        
-        # Project context
-        self.project_name = None
-        self.project_description = None
-        self.requirements_text = None
-        
-        # Execution status
+        self.project_context = {
+            "name": "",
+            "description": "",
+            "github_repo": ""
+        }
+        self.codegen_agent = None
         self.is_executing = False
-        self.execution_thread = None
-        self.execution_results = {}
-        
-        # Initialize components
-        self.requirements_manager.initialize()
-        self.context_manager.initialize()
     
     def get_current_time_str(self) -> str:
         """
@@ -94,6 +79,14 @@ class TaskWeaverUIEnhanced:
         Returns:
             bool: True if initialization was successful, False otherwise
         """
+        self.codegen_agent = CodegenAgent(
+            app, 
+            config, 
+            logger, 
+            requirements_manager=self.requirements_manager,
+            context_manager=self.context_manager,
+            execution_engine=self.execution_engine,
+        )
         return self.codegen_agent.initialize(codegen_token)
     
     def add_message(self, role: str, content: str) -> None:
@@ -138,8 +131,9 @@ class TaskWeaverUIEnhanced:
             project_name: Name of the project
             project_description: Description of the project
         """
-        self.project_name = project_name
-        self.project_description = project_description
+        self.project_context["name"] = project_name
+        self.project_context["description"] = project_description
+        self.project_context["github_repo"] = ""
         
         # Update Codegen agent context
         if self.requirements_text:
@@ -281,3 +275,16 @@ class TaskWeaverUIEnhanced:
         """
         self.chat_history = []
         self.requirements_text = None
+        
+    def set_github_repository(self, repo_name: str) -> None:
+        """
+        Set the GitHub repository for the project
+        
+        Args:
+            repo_name: Name of the GitHub repository
+        """
+        self.project_context["github_repo"] = repo_name
+        
+        # Update Codegen agent context if available
+        if self.codegen_agent and hasattr(self.codegen_agent, 'set_github_repository'):
+            self.codegen_agent.set_github_repository(repo_name)

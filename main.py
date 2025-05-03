@@ -58,7 +58,7 @@ def parse_args():
     
     # CLI options
     cli_group = parser.add_argument_group("CLI Options")
-    cli_group.add_argument("--project", type=str, help="Project directory path for CLI mode")
+    cli_group.add_argument("--project", type=str, help="Project directory path for CLI mode (required when using --cli)")
     cli_group.add_argument("--interactive", action="store_true", help="Run CLI in interactive mode")
     
     # Common options
@@ -105,6 +105,9 @@ def launch_web_ui(host: str = "0.0.0.0", port: int = 8000, config_path: Optional
         
         # Apply configuration if provided
         if config_path:
+            if not os.path.exists(config_path):
+                logger.error(f"Configuration file not found: {config_path}")
+                return 1
             os.environ["TASKWEAVER_CONFIG_PATH"] = config_path
             logger.info(f"Using configuration from {config_path}")
         
@@ -118,9 +121,11 @@ def launch_web_ui(host: str = "0.0.0.0", port: int = 8000, config_path: Optional
             success, message = install_package("-e .")
             if success:
                 logger.info(f"{message}. Please rerun the script.")
+                logger.info("You can now run: python main.py --web")
             else:
                 logger.error(message)
                 logger.error("Please install dependencies manually: pip install -e .")
+                logger.error("For more information, see the project documentation.")
         else:
             logger.error("Make sure all dependencies are installed: pip install -e .")
             logger.error("Use --auto-install to automatically install dependencies")
@@ -146,6 +151,9 @@ def launch_gui(config_path: Optional[str] = None, auto_install: bool = False):
         
         # Apply configuration if provided
         if config_path:
+            if not os.path.exists(config_path):
+                logger.error(f"Configuration file not found: {config_path}")
+                return 1
             os.environ["TASKWEAVER_CONFIG_PATH"] = config_path
             logger.info(f"Using configuration from {config_path}")
         
@@ -161,9 +169,11 @@ def launch_gui(config_path: Optional[str] = None, auto_install: bool = False):
             success, message = install_package("PyQt5")
             if success:
                 logger.info(f"{message}. Please rerun the script.")
+                logger.info("You can now run: python main.py --gui")
             else:
                 logger.error(message)
                 logger.error("Please install PyQt5 manually: pip install PyQt5")
+                logger.error("For more information, see the project documentation.")
         else:
             logger.error("Make sure PyQt5 is installed: pip install PyQt5")
             logger.error("Use --auto-install to automatically install dependencies")
@@ -191,12 +201,16 @@ def launch_cli(project_dir: Optional[str] = None, interactive: bool = False,
         
         # Apply configuration if provided
         if config_path:
+            if not os.path.exists(config_path):
+                logger.error(f"Configuration file not found: {config_path}")
+                return 1
             os.environ["TASKWEAVER_CONFIG_PATH"] = config_path
             logger.info(f"Using configuration from {config_path}")
         
         cli = TaskWeaverCLI()
         
         if not project_dir:
+            logger.error("Project directory is required for CLI mode")
             raise ValueError("Project directory is required for CLI mode. Use --project to specify a project directory.")
         
         if interactive:
@@ -215,9 +229,11 @@ def launch_cli(project_dir: Optional[str] = None, interactive: bool = False,
             success, message = install_package("-e .")
             if success:
                 logger.info(f"{message}. Please rerun the script.")
+                logger.info("You can now run: python main.py --cli --project <project_dir>")
             else:
                 logger.error(message)
                 logger.error("Please install dependencies manually: pip install -e .")
+                logger.error("For more information, see the project documentation.")
         else:
             logger.error("Make sure all dependencies are installed: pip install -e .")
             logger.error("Use --auto-install to automatically install dependencies")
@@ -237,6 +253,9 @@ def setup_environment(debug: bool = False, config_path: Optional[str] = None):
     Args:
         debug: Whether to enable debug logging
         config_path: Path to configuration file
+        
+    Returns:
+        bool: True if environment setup was successful, False otherwise
     """
     # Set up logging level
     if debug:
@@ -247,6 +266,10 @@ def setup_environment(debug: bool = False, config_path: Optional[str] = None):
     if config_path:
         if not os.path.exists(config_path):
             logger.warning(f"Configuration file not found: {config_path}")
+            return False
+        elif not os.access(config_path, os.R_OK):
+            logger.warning(f"Configuration file not readable: {config_path}")
+            return False
         else:
             os.environ["TASKWEAVER_CONFIG_PATH"] = config_path
             logger.debug(f"Using configuration from {config_path}")
@@ -255,6 +278,7 @@ def setup_environment(debug: bool = False, config_path: Optional[str] = None):
     if not os.environ.get("OPENAI_API_KEY"):
         logger.warning("OPENAI_API_KEY environment variable not set")
         logger.warning("You may need to set this for TaskWeaver to function properly")
+        logger.warning("Example: export OPENAI_API_KEY=your_api_key_here")
     
     # Check for other optional but recommended environment variables
     if not os.environ.get("OPENAI_API_BASE"):
@@ -262,6 +286,8 @@ def setup_environment(debug: bool = False, config_path: Optional[str] = None):
     
     if not os.environ.get("OPENAI_MODEL"):
         logger.debug("OPENAI_MODEL not set, using default model")
+    
+    return True
 
 def display_version():
     """
@@ -284,12 +310,20 @@ def main():
         return 0
     
     # Set up environment
-    setup_environment(debug=args.debug, config_path=args.config)
+    env_setup_success = setup_environment(debug=args.debug, config_path=args.config)
+    if not env_setup_success and args.config:
+        logger.error(f"Failed to set up environment with config file: {args.config}")
+        return 1
     
     # Print banner
     print("=" * 80)
     print(f"TaskWeaver v{__version__} - A code-first agent framework for data analytics tasks")
     print("=" * 80)
+    
+    # Validate CLI mode has project directory
+    if args.cli and not args.project:
+        logger.error("Project directory is required for CLI mode. Use --project to specify a project directory.")
+        return 1
     
     # Launch the appropriate UI
     if args.web:

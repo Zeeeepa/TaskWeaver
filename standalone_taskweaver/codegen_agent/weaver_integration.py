@@ -12,6 +12,7 @@ import sys
 import json
 import logging
 import asyncio
+import time
 from typing import Dict, List, Optional, Any, Union, Tuple, Set
 
 from injector import inject
@@ -235,23 +236,74 @@ class CodegenWeaverIntegration:
         """
         Manage the storage of results to prevent memory leaks
         
+        This method implements a sophisticated strategy for managing result storage:
+        1. Prioritizes keeping recent results
+        2. Prioritizes keeping successful results over failed ones
+        3. Considers result size when deciding what to remove
+        
         Args:
             new_results: New results to store
         """
         # Add new results to storage
         self.step_results.update(new_results)
         
-        # If we have too many results, remove the oldest ones
+        # If we have too many results, implement a smart removal strategy
         if len(self.step_results) > self.max_stored_results:
-            # Sort keys by timestamp if available, otherwise just take the first ones
-            keys_to_remove = sorted(
-                self.step_results.keys(),
-                key=lambda k: self.step_results[k].get("timestamp", 0) if isinstance(self.step_results[k], dict) else 0
-            )[:len(self.step_results) - self.max_stored_results]
+            # Get memory usage information if available
+            try:
+                from standalone_taskweaver.codegen_agent.utils import get_memory_usage
+                memory_info = get_memory_usage()
+                self.logger.info(f"Current memory usage: {memory_info.get('current_mb', 'unknown')} MB")
+            except Exception:
+                memory_info = None
             
-            # Remove oldest results
+            # Calculate how many results to remove
+            num_to_remove = len(self.step_results) - self.max_stored_results
+            
+            # Create a scoring system for results to determine which to remove
+            result_scores = {}
+            current_time = time.time()
+            
+            for key, result in self.step_results.items():
+                score = 0
+                
+                # Factor 1: Age of result (older = higher score = more likely to be removed)
+                timestamp = result.get("timestamp", 0) if isinstance(result, dict) else 0
+                age_in_hours = (current_time - timestamp) / 3600 if timestamp else 24  # Default to 24 hours if no timestamp
+                score += min(age_in_hours * 10, 100)  # Cap at 100 points for age
+                
+                # Factor 2: Status (failed results are more likely to be removed)
+                if isinstance(result, dict) and "status" in result:
+                    if result["status"] in ["failed", "error"]:
+                        score += 50
+                    elif result["status"] in ["cancelled"]:
+                        score += 30
+                
+                # Factor 3: Size of result (larger results are more likely to be removed)
+                try:
+                    result_size = sys.getsizeof(json.dumps(result)) / 1024  # Size in KB
+                    score += min(result_size, 50)  # Cap at 50 points for size
+                except (TypeError, OverflowError):
+                    # If we can't calculate size, add a default score
+                    score += 25
+                
+                result_scores[key] = score
+            
+            # Sort keys by score (highest first - most likely to be removed)
+            keys_to_remove = sorted(
+                result_scores.keys(),
+                key=lambda k: result_scores[k],
+                reverse=True
+            )[:num_to_remove]
+            
+            # Remove results
             for key in keys_to_remove:
                 del self.step_results[key]
+            
+            self.logger.info(f"Removed {len(keys_to_remove)} old results from storage. Current count: {len(self.step_results)}")
+        
+        # Log storage status
+        self.logger.debug(f"Current result storage count: {len(self.step_results)}/{self.max_stored_results}")
         
     def execute_single_step(self, step_id: str, step_title: str, step_description: str) -> TaskResult:
         """

@@ -95,13 +95,22 @@ class CodegenAgent:
     def initialize(self, codegen_token: str) -> bool:
         """
         Initialize the Codegen agent with the provided token
-        
+
         Args:
             codegen_token: Codegen API token
-            
+
         Returns:
             bool: True if initialization was successful, False otherwise
+            
+        Raises:
+            ValueError: If the token is empty or invalid
+            ImportError: If the Codegen SDK is not installed
         """
+        if not codegen_token or not isinstance(codegen_token, str) or not codegen_token.strip():
+            self.logger.error("Invalid Codegen token provided: token cannot be empty")
+            self.status = CodegenAgentStatus.ERROR
+            return False
+            
         try:
             self.status = CodegenAgentStatus.INITIALIZING
             
@@ -110,14 +119,19 @@ class CodegenAgent:
             
             if not self.codegen_agent:
                 self.status = CodegenAgentStatus.ERROR
+                self.logger.error("Failed to initialize Codegen agent: client initialization returned None")
                 return False
             
             # Initialize the Codegen client
             try:
                 from codegen.extensions.events.client import CodegenClient
                 self.codegen_client = CodegenClient(token=codegen_token)
-            except ImportError:
-                self.logger.warning("CodegenClient not available. Some features may not work.")
+                self.logger.info("Codegen client initialized successfully")
+            except ImportError as e:
+                self.logger.warning(f"CodegenClient not available: {str(e)}. Some features may not work.")
+                self.codegen_client = None
+            except Exception as e:
+                self.logger.warning(f"Failed to initialize CodegenClient: {str(e)}. Some features may not work.")
                 self.codegen_client = None
             
             # Initialize the execution engine
@@ -125,8 +139,13 @@ class CodegenAgent:
             
             # Update status
             self.status = CodegenAgentStatus.READY
+            self.logger.info("Codegen agent initialized successfully")
             
             return True
+        except ImportError as e:
+            self.logger.error(f"Failed to import required modules: {str(e)}", exc_info=True)
+            self.status = CodegenAgentStatus.ERROR
+            return False
         except Exception as e:
             self.logger.error(f"Failed to initialize Codegen agent: {str(e)}", exc_info=True)
             self.status = CodegenAgentStatus.ERROR

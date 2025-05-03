@@ -31,9 +31,12 @@ logger = logging.getLogger("taskweaver")
 
 # Version information
 try:
-    __version__ = importlib.metadata.version("taskweaver")
-except importlib.metadata.PackageNotFoundError:
-    __version__ = "unknown"
+    from standalone_taskweaver.version import __version__
+except ImportError:
+    try:
+        __version__ = importlib.metadata.version("taskweaver")
+    except importlib.metadata.PackageNotFoundError:
+        __version__ = "unknown"
 
 def parse_args():
     """

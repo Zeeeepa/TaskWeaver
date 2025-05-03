@@ -5,12 +5,14 @@ Web server for TaskWeaver UI
 import os
 import json
 import logging
+import traceback
 from typing import Dict, List, Optional, Any, Union
 
-from fastapi import FastAPI, HTTPException, Depends, Request, Form
+from fastapi import FastAPI, HTTPException, Depends, Request, Form, status
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 from injector import inject
@@ -22,13 +24,27 @@ from standalone_taskweaver.codegen_agent.integration import CodegenIntegration
 from standalone_taskweaver.codegen_agent.bidirectional_context import BidirectionalContext
 from standalone_taskweaver.codegen_agent.advanced_api import CodegenAdvancedAPI
 from standalone_taskweaver.ui.taskweaver_ui import TaskWeaverUI
+from standalone_taskweaver.version import __version__
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("taskweaver-ui")
 
 # Create FastAPI app
-app = FastAPI(title="TaskWeaver UI")
+app = FastAPI(
+    title="TaskWeaver UI",
+    description="Web UI for TaskWeaver - A code-first agent framework for data analytics tasks",
+    version=__version__
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
+)
 
 # Get the directory of this file
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -106,12 +122,28 @@ class FileRequest(BaseModel):
 class RequirementsRequest(BaseModel):
     requirements: str
 
+# Error handler
+class ErrorResponse(BaseModel):
+    success: bool = False
+    error: str
+    details: Optional[str] = None
+
 # Initialize UI
 def get_ui():
     global ui
     if ui is None:
         ui = TaskWeaverUI(None, None, None)
     return ui
+
+# Exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {str(exc)}")
+    logger.error(traceback.format_exc())
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"success": False, "error": "Internal server error", "details": str(exc)}
+    )
 
 # API routes
 @app.get("/", response_class=HTMLResponse)
@@ -127,6 +159,27 @@ async def get_codegen(request: Request):
     Get the Codegen page
     """
     return templates.TemplateResponse("codegen.html", {"request": request})
+
+@app.get("/health")
+async def health_check():
+    """
+    Health check endpoint
+    """
+    return {
+        "status": "ok",
+        "version": __version__,
+        "ui_initialized": ui is not None
+    }
+
+@app.get("/api/version")
+async def get_version():
+    """
+    Get the version of TaskWeaver
+    """
+    return {
+        "success": True,
+        "version": __version__
+    }
 
 @app.get("/api/codegen/status")
 async def get_codegen_status():
@@ -361,4 +414,3 @@ def run_server(host: str = "0.0.0.0", port: int = 8000):
 
 if __name__ == "__main__":
     run_server()
-

@@ -48,6 +48,8 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 api_credentials = {
     "github_token": "",
     "codegen_token": "",
+    "llm_provider": "openai",
+    "llm_api_key": "",
     "ngrok_token": "",
 }
 
@@ -88,6 +90,7 @@ class MessageRequest(BaseModel):
 class ProjectContextRequest(BaseModel):
     project_name: str
     project_description: str
+    github_repo: Optional[str] = None
 
 class ExecuteTasksRequest(BaseModel):
     max_concurrent_tasks: int = 3
@@ -95,6 +98,8 @@ class ExecuteTasksRequest(BaseModel):
 class ApiCredentialsRequest(BaseModel):
     github_token: Optional[str] = None
     codegen_token: Optional[str] = None
+    llm_provider: Optional[str] = None
+    llm_api_key: Optional[str] = None
     ngrok_token: Optional[str] = None
 
 # Routes
@@ -121,6 +126,12 @@ async def set_credentials(request: ApiCredentialsRequest):
         # Initialize Codegen agent
         ui.initialize_agent(request.codegen_token)
     
+    if request.llm_provider:
+        api_credentials["llm_provider"] = request.llm_provider
+    
+    if request.llm_api_key:
+        api_credentials["llm_api_key"] = request.llm_api_key
+    
     if request.ngrok_token:
         api_credentials["ngrok_token"] = request.ngrok_token
     
@@ -134,6 +145,8 @@ async def get_credentials():
     return {
         "github_token": bool(api_credentials["github_token"]),
         "codegen_token": bool(api_credentials["codegen_token"]),
+        "llm_provider": api_credentials["llm_provider"],
+        "llm_api_key": bool(api_credentials["llm_api_key"]),
         "ngrok_token": bool(api_credentials["ngrok_token"]),
     }
 
@@ -164,6 +177,10 @@ async def set_project_context(request: ProjectContextRequest):
     Set project context
     """
     ui.set_project_context(request.project_name, request.project_description)
+    
+    # If GitHub repository is provided, set it
+    if request.github_repo:
+        ui.set_github_repository(request.github_repo)
     
     return {"status": "success"}
 
@@ -261,6 +278,35 @@ async def startup_event():
     """
     # Start background task for broadcasting status
     asyncio.create_task(broadcast_status())
+
+@app.get("/api/github/repos")
+async def get_github_repos():
+    """
+    Get GitHub repositories
+    """
+    if not api_credentials["github_token"]:
+        return {"status": "error", "message": "GitHub token not set"}
+    
+    try:
+        # Initialize GitHub client with token
+        from github import Github
+        github_client = Github(api_credentials["github_token"])
+        
+        # Get repositories
+        repos = []
+        for repo in github_client.get_user().get_repos():
+            repos.append({
+                "name": repo.full_name,
+                "description": repo.description or "",
+                "url": repo.html_url,
+                "stars": repo.stargazers_count,
+                "forks": repo.forks_count,
+            })
+        
+        return {"status": "success", "repos": repos}
+    except Exception as e:
+        logger.error(f"Error getting GitHub repositories: {str(e)}")
+        return {"status": "error", "message": str(e)}
 
 def run_server(host: str = "0.0.0.0", port: int = 8000):
     """

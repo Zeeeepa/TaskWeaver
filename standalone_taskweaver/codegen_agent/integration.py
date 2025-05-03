@@ -15,6 +15,11 @@ from standalone_taskweaver.app.app import TaskWeaverApp
 from standalone_taskweaver.config.config_mgt import AppConfigSource
 from standalone_taskweaver.logging import TelemetryLogger
 from standalone_taskweaver.codegen_agent.codegen import Configuration, GitHubManager, NgrokManager, CodegenManager, WorkflowManager
+from standalone_taskweaver.codegen_agent.requirements_manager import RequirementsManager, AtomicTask, DependencyGraph
+from standalone_taskweaver.codegen_agent.concurrent_execution import ConcurrentExecutionEngine, ErrorHandlingFramework
+from standalone_taskweaver.codegen_agent.interface_generator import InterfaceGenerator
+from standalone_taskweaver.codegen_agent.concurrent_context_manager import ConcurrentContextManager
+from standalone_taskweaver.codegen_agent.query_generation import QueryGenerationFramework
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -42,14 +47,24 @@ class CodegenIntegration:
         self.workflow_manager = None
         self.is_initialized = False
         
+        # Initialize new components
+        self.requirements_manager = RequirementsManager(app, config, logger)
+        self.concurrent_execution_engine = ConcurrentExecutionEngine(app, config, logger)
+        self.error_handling_framework = ErrorHandlingFramework(app, config, logger)
+        self.interface_generator = InterfaceGenerator(app, config, logger)
+        self.query_generation_framework = QueryGenerationFramework(app, config, logger)
+        
+        # Initialize Codegen agent
+        self.codegen_agent = None
+        
     def initialize(
         self,
         github_token: str,
         codegen_token: str,
         ngrok_token: str,
         codegen_org_id: str,
-        repo_name: Optional[str] = None
-    ) -> bool:
+        repo_name: str = None,
+    ) -> None:
         """
         Initialize the integration with API credentials
         
@@ -85,7 +100,15 @@ class CodegenIntegration:
                 
             self.is_initialized = True
             self.logger.info("Codegen integration initialized successfully")
-            return True
+            
+            # Initialize Codegen agent
+            self.codegen_agent = Agent(org_id=codegen_org_id, token=codegen_token)
+            
+            # Initialize new components with Codegen credentials
+            self.concurrent_execution_engine.initialize(codegen_org_id, codegen_token)
+            self.interface_generator.initialize(codegen_org_id, codegen_token)
+            self.query_generation_framework.initialize(codegen_org_id, codegen_token)
+            
         except Exception as e:
             self.logger.error(f"Error initializing Codegen integration: {str(e)}")
             return False
@@ -314,3 +337,271 @@ class CodegenIntegration:
             error_msg = f"Error creating requirements document: {str(e)}"
             self.logger.error(error_msg)
             return False, error_msg
+        
+    def create_requirements_file(self, content: str = None) -> None:
+        """
+        Create a REQUIREMENTS.md file with the given content or a template
+        
+        Args:
+            content: Optional content for the file
+        """
+        self.requirements_manager.create_requirements_file(content)
+        
+    def create_structure_file(self, content: str = None) -> None:
+        """
+        Create a STRUCTURE.md file with the given content or a template
+        
+        Args:
+            content: Optional content for the file
+        """
+        self.requirements_manager.create_structure_file(content)
+        
+    def parse_requirements(self) -> List[AtomicTask]:
+        """
+        Parse REQUIREMENTS.md into atomic tasks
+        
+        Returns:
+            List of atomic tasks
+        """
+        return self.requirements_manager.parse_requirements()
+        
+    def parse_structure_file(self) -> Dict[str, Any]:
+        """
+        Parse STRUCTURE.md to extract requirements section
+        
+        Returns:
+            Dictionary with parsed structure
+        """
+        return self.requirements_manager.parse_structure_file()
+        
+    def identify_dependencies(self, tasks: List[AtomicTask]) -> DependencyGraph:
+        """
+        Identify dependencies between tasks and create a dependency graph
+        
+        Args:
+            tasks: List of atomic tasks
+            
+        Returns:
+            Dependency graph
+        """
+        return self.requirements_manager.identify_dependencies(tasks)
+        
+    def prioritize_tasks(self, dependency_graph: DependencyGraph) -> List[List[AtomicTask]]:
+        """
+        Group tasks into phases based on dependencies, maximizing concurrency
+        
+        Args:
+            dependency_graph: Dependency graph
+            
+        Returns:
+            List of phases, each containing a list of tasks
+        """
+        return self.requirements_manager.prioritize_tasks(dependency_graph)
+        
+    async def execute_tasks(self, tasks: List[AtomicTask]) -> List[Any]:
+        """
+        Execute multiple tasks concurrently and return results
+        
+        Args:
+            tasks: List of atomic tasks
+            
+        Returns:
+            List of task results
+        """
+        return await self.concurrent_execution_engine.execute_tasks(tasks)
+        
+    async def monitor_progress(self, task_ids: List[str]) -> Dict[str, Any]:
+        """
+        Monitor progress of multiple concurrent tasks
+        
+        Args:
+            task_ids: List of task IDs
+            
+        Returns:
+            Dictionary mapping task IDs to statuses
+        """
+        return await self.concurrent_execution_engine.monitor_progress(task_ids)
+        
+    def generate_interface(self, component_spec: Dict[str, Any]) -> str:
+        """
+        Generate interface definition for a component
+        
+        Args:
+            component_spec: Component specification
+            
+        Returns:
+            Interface definition
+        """
+        return self.interface_generator.generate_interface(component_spec)
+        
+    def create_mock_implementation(self, interface: str) -> str:
+        """
+        Create mock implementation for an interface
+        
+        Args:
+            interface: Interface definition
+            
+        Returns:
+            Mock implementation
+        """
+        return self.interface_generator.create_mock_implementation(interface)
+        
+    def generate_queries(self, requirements: List[str], phase: int = 1) -> List[str]:
+        """
+        Generate optimized queries for a specific phase
+        
+        Args:
+            requirements: List of requirements
+            phase: Phase number (default: 1)
+            
+        Returns:
+            List of queries
+        """
+        return self.query_generation_framework.generate_queries(requirements, phase)
+        
+    def generate_queries_from_tasks(self, tasks: List[AtomicTask], phase: int = 1) -> List[str]:
+        """
+        Generate optimized queries from atomic tasks for a specific phase
+        
+        Args:
+            tasks: List of atomic tasks
+            phase: Phase number (default: 1)
+            
+        Returns:
+            List of queries
+        """
+        return self.query_generation_framework.generate_queries_from_tasks(tasks, phase)
+        
+    def optimize_for_concurrency(self, queries: List[str]) -> List[str]:
+        """
+        Optimize queries for maximum concurrency
+        
+        Args:
+            queries: List of queries
+            
+        Returns:
+            Optimized list of queries
+        """
+        return self.query_generation_framework.optimize_for_concurrency(queries)
+        
+    def execute_query(self, query: str) -> str:
+        """
+        Execute a query using the Codegen API
+        
+        Args:
+            query: Query string
+            
+        Returns:
+            Result string
+        """
+        return self.query_generation_framework.execute_query(query)
+        
+    def execute_queries(self, queries: List[str]) -> List[str]:
+        """
+        Execute multiple queries using the Codegen API
+        
+        Args:
+            queries: List of query strings
+            
+        Returns:
+            List of result strings
+        """
+        return self.query_generation_framework.execute_queries(queries)
+        
+    def execute_queries_concurrently(self, queries: List[str]) -> List[str]:
+        """
+        Execute multiple queries concurrently using the Codegen API
+        
+        Args:
+            queries: List of query strings
+            
+        Returns:
+            List of result strings
+        """
+        return self.query_generation_framework.execute_queries_concurrently(queries)
+        
+    def handle_error(self, task: AtomicTask, error: Exception) -> Any:
+        """
+        Handle errors with appropriate fallback strategies
+        
+        Args:
+            task: Atomic task
+            error: Exception
+            
+        Returns:
+            Task result
+        """
+        return self.error_handling_framework.handle_error(task, error)
+        
+    def retry_with_backoff(self, task: AtomicTask, max_retries: int = 3) -> Any:
+        """
+        Retry failed tasks with exponential backoff
+        
+        Args:
+            task: Atomic task
+            max_retries: Maximum number of retries
+            
+        Returns:
+            Task result
+        """
+        return self.error_handling_framework.retry_with_backoff(task, max_retries)
+        
+    def run_codegen_task(self, prompt: str) -> Any:
+        """
+        Run a task using the Codegen API
+        
+        Args:
+            prompt: Prompt string
+            
+        Returns:
+            Task result
+        """
+        if not self.codegen_agent:
+            raise ValueError("Codegen agent not initialized. Call initialize() first.")
+            
+        # Execute the task using the Codegen SDK
+        task = self.codegen_agent.run(prompt=prompt)
+        
+        # Return the task object
+        return task
+        
+    def get_task_status(self, task: Any) -> str:
+        """
+        Get the status of a Codegen task
+        
+        Args:
+            task: Codegen task object
+            
+        Returns:
+            Task status
+        """
+        if not self.codegen_agent:
+            raise ValueError("Codegen agent not initialized. Call initialize() first.")
+            
+        # Refresh the task status
+        task.refresh()
+        
+        # Return the status
+        return task.status
+        
+    def get_task_result(self, task: Any) -> Any:
+        """
+        Get the result of a Codegen task
+        
+        Args:
+            task: Codegen task object
+            
+        Returns:
+            Task result
+        """
+        if not self.codegen_agent:
+            raise ValueError("Codegen agent not initialized. Call initialize() first.")
+            
+        # Refresh the task status
+        task.refresh()
+        
+        # Return the result
+        if task.status == "completed":
+            return task.result
+        else:
+            return None

@@ -3,420 +3,786 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Codegen Integration</title>
+    <title>TaskWeaver - Codegen Integration</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f5f5f5;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding-top: 20px;
         }
         .header {
-            background-color: #333;
-            color: white;
-            padding: 20px;
+            background-color: #f8f9fa;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px 0;
+            margin-top: 30px;
+            border-top: 1px solid #e9ecef;
             text-align: center;
         }
-        .section {
-            background-color: white;
-            border-radius: 5px;
-            padding: 20px;
+        .card {
             margin-bottom: 20px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input[type="text"], textarea, select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        .status {
-            padding: 10px;
-            margin-top: 10px;
-            border-radius: 4px;
-        }
-        .success {
-            background-color: #dff0d8;
-            color: #3c763d;
-        }
-        .error {
-            background-color: #f2dede;
-            color: #a94442;
-        }
-        .tabs {
-            display: flex;
+        .nav-tabs {
             margin-bottom: 20px;
-        }
-        .tab {
-            padding: 10px 20px;
-            background-color: #ddd;
-            cursor: pointer;
-            border-radius: 5px 5px 0 0;
-            margin-right: 5px;
-        }
-        .tab.active {
-            background-color: white;
-            border-bottom: 2px solid #4CAF50;
         }
         .tab-content {
-            display: none;
+            padding: 20px;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 0.25rem 0.25rem;
         }
-        .tab-content.active {
-            display: block;
-        }
-        pre {
-            background-color: #f5f5f5;
-            padding: 10px;
-            border-radius: 4px;
-            overflow-x: auto;
-        }
-        .code-editor {
+        #code-editor, #code-output {
+            width: 100%;
+            height: 300px;
             font-family: monospace;
-            min-height: 300px;
-            white-space: pre;
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+            padding: 10px;
+        }
+        #code-output {
+            background-color: #f8f9fa;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Codegen Integration</h1>
-    </div>
-    
     <div class="container">
-        <div class="tabs">
-            <div class="tab active" data-tab="code-generation">Code Generation</div>
-            <div class="tab" data-tab="code-analysis">Code Analysis</div>
-            <div class="tab" data-tab="code-refactoring">Code Refactoring</div>
-            <div class="tab" data-tab="test-generation">Test Generation</div>
-        </div>
-        
-        <div class="tab-content active" id="code-generation">
-            <div class="section">
-                <h2>Generate Code</h2>
-                <div class="form-group">
-                    <label for="code-prompt">Prompt:</label>
-                    <textarea id="code-prompt" rows="5" placeholder="Enter prompt for code generation"></textarea>
+        <div class="header">
+            <div class="row">
+                <div class="col-md-8">
+                    <h1>TaskWeaver - Codegen Integration</h1>
+                    <p class="lead">Seamlessly integrate TaskWeaver with Codegen for enhanced code generation capabilities</p>
                 </div>
-                <div class="form-group">
-                    <label for="code-language">Language:</label>
-                    <select id="code-language">
-                        <option value="python">Python</option>
-                        <option value="javascript">JavaScript</option>
-                        <option value="typescript">TypeScript</option>
-                        <option value="java">Java</option>
-                        <option value="csharp">C#</option>
-                        <option value="cpp">C++</option>
-                        <option value="go">Go</option>
-                        <option value="rust">Rust</option>
-                    </select>
-                </div>
-                <button id="generate-code-btn">Generate Code</button>
-                <div id="generate-code-status" class="status"></div>
-                <div class="form-group">
-                    <label for="generated-code">Generated Code:</label>
-                    <pre id="generated-code" class="code-editor"></pre>
+                <div class="col-md-4 text-end">
+                    <a href="/" class="btn btn-outline-secondary">Home</a>
+                    <a href="https://github.com/microsoft/TaskWeaver" target="_blank" class="btn btn-outline-secondary">GitHub</a>
                 </div>
             </div>
         </div>
-        
-        <div class="tab-content" id="code-analysis">
-            <div class="section">
-                <h2>Analyze Code</h2>
-                <div class="form-group">
-                    <label for="analyze-code">Code to Analyze:</label>
-                    <textarea id="analyze-code" rows="10" placeholder="Enter code to analyze"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="analyze-language">Language:</label>
-                    <select id="analyze-language">
-                        <option value="python">Python</option>
-                        <option value="javascript">JavaScript</option>
-                        <option value="typescript">TypeScript</option>
-                        <option value="java">Java</option>
-                        <option value="csharp">C#</option>
-                        <option value="cpp">C++</option>
-                        <option value="go">Go</option>
-                        <option value="rust">Rust</option>
-                    </select>
-                </div>
-                <button id="analyze-code-btn">Analyze Code</button>
-                <div id="analyze-code-status" class="status"></div>
-                <div class="form-group">
-                    <label for="analysis-result">Analysis Result:</label>
-                    <pre id="analysis-result"></pre>
+
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="alert alert-info" id="status-alert">
+                    <h4>Codegen Integration Status</h4>
+                    <p id="status-message">Loading integration status...</p>
                 </div>
             </div>
         </div>
-        
-        <div class="tab-content" id="code-refactoring">
-            <div class="section">
-                <h2>Refactor Code</h2>
-                <div class="form-group">
-                    <label for="refactor-code">Code to Refactor:</label>
-                    <textarea id="refactor-code" rows="10" placeholder="Enter code to refactor"></textarea>
+
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="setup-tab" data-bs-toggle="tab" data-bs-target="#setup" type="button" role="tab" aria-controls="setup" aria-selected="true">Setup</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tasks-tab" data-bs-toggle="tab" data-bs-target="#tasks" type="button" role="tab" aria-controls="tasks" aria-selected="false">Tasks</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="code-tab" data-bs-toggle="tab" data-bs-target="#code" type="button" role="tab" aria-controls="code" aria-selected="false">Code Generation</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="context-tab" data-bs-toggle="tab" data-bs-target="#context" type="button" role="tab" aria-controls="context" aria-selected="false">Context</button>
+            </li>
+        </ul>
+        <div class="tab-content" id="myTabContent">
+            <!-- Setup Tab -->
+            <div class="tab-pane fade show active" id="setup" role="tabpanel" aria-labelledby="setup-tab">
+                <h3>Setup Codegen Integration</h3>
+                <form id="setup-form">
+                    <div class="mb-3">
+                        <label for="github-token" class="form-label">GitHub Token</label>
+                        <input type="password" class="form-control" id="github-token" placeholder="Enter your GitHub token">
+                    </div>
+                    <div class="mb-3">
+                        <label for="codegen-token" class="form-label">Codegen Token</label>
+                        <input type="password" class="form-control" id="codegen-token" placeholder="Enter your Codegen token">
+                    </div>
+                    <div class="mb-3">
+                        <label for="ngrok-token" class="form-label">Ngrok Token</label>
+                        <input type="password" class="form-control" id="ngrok-token" placeholder="Enter your Ngrok token">
+                    </div>
+                    <div class="mb-3">
+                        <label for="codegen-org-id" class="form-label">Codegen Organization ID</label>
+                        <input type="text" class="form-control" id="codegen-org-id" placeholder="Enter your Codegen organization ID">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Initialize</button>
+                </form>
+
+                <div class="mt-4" id="repo-section" style="display: none;">
+                    <h4>Select Repository</h4>
+                    <div class="mb-3">
+                        <label for="repo-select" class="form-label">Repository</label>
+                        <select class="form-select" id="repo-select">
+                            <option value="">Select a repository</option>
+                        </select>
+                    </div>
+                    <button id="set-repo-btn" class="btn btn-primary">Set Repository</button>
                 </div>
-                <div class="form-group">
-                    <label for="refactor-language">Language:</label>
-                    <select id="refactor-language">
-                        <option value="python">Python</option>
-                        <option value="javascript">JavaScript</option>
-                        <option value="typescript">TypeScript</option>
-                        <option value="java">Java</option>
-                        <option value="csharp">C#</option>
-                        <option value="cpp">C++</option>
-                        <option value="go">Go</option>
-                        <option value="rust">Rust</option>
-                    </select>
+            </div>
+
+            <!-- Tasks Tab -->
+            <div class="tab-pane fade" id="tasks" role="tabpanel" aria-labelledby="tasks-tab">
+                <h3>Codegen Tasks</h3>
+                <div class="mb-3">
+                    <label for="task-prompt" class="form-label">Task Prompt</label>
+                    <textarea class="form-control" id="task-prompt" rows="3" placeholder="Enter your task prompt"></textarea>
                 </div>
-                <div class="form-group">
-                    <label for="refactor-instructions">Refactoring Instructions:</label>
-                    <textarea id="refactor-instructions" rows="5" placeholder="Enter refactoring instructions"></textarea>
+                <button id="create-task-btn" class="btn btn-primary">Create Task</button>
+
+                <div class="mt-4">
+                    <h4>Active Tasks</h4>
+                    <div class="table-responsive">
+                        <table class="table table-striped" id="tasks-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Prompt</th>
+                                    <th>Status</th>
+                                    <th>Created</th>
+                                    <th>Updated</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Tasks will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                <button id="refactor-code-btn">Refactor Code</button>
-                <div id="refactor-code-status" class="status"></div>
-                <div class="form-group">
-                    <label for="refactored-code">Refactored Code:</label>
-                    <pre id="refactored-code" class="code-editor"></pre>
+            </div>
+
+            <!-- Code Generation Tab -->
+            <div class="tab-pane fade" id="code" role="tabpanel" aria-labelledby="code-tab">
+                <h3>Code Generation</h3>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="code-prompt" class="form-label">Prompt</label>
+                            <textarea class="form-control" id="code-prompt" rows="3" placeholder="Enter your code generation prompt"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="code-language" class="form-label">Language</label>
+                            <select class="form-select" id="code-language">
+                                <option value="python">Python</option>
+                                <option value="javascript">JavaScript</option>
+                                <option value="typescript">TypeScript</option>
+                                <option value="java">Java</option>
+                                <option value="csharp">C#</option>
+                                <option value="cpp">C++</option>
+                                <option value="go">Go</option>
+                                <option value="rust">Rust</option>
+                                <option value="php">PHP</option>
+                                <option value="ruby">Ruby</option>
+                                <option value="swift">Swift</option>
+                                <option value="kotlin">Kotlin</option>
+                                <option value="sql">SQL</option>
+                                <option value="html">HTML</option>
+                                <option value="css">CSS</option>
+                            </select>
+                        </div>
+                        <button id="generate-code-btn" class="btn btn-primary">Generate Code</button>
+                        <button id="analyze-code-btn" class="btn btn-secondary">Analyze Code</button>
+                        <button id="refactor-code-btn" class="btn btn-info">Refactor Code</button>
+                        <button id="generate-tests-btn" class="btn btn-warning">Generate Tests</button>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="code-editor" class="form-label">Code Editor</label>
+                            <textarea id="code-editor" placeholder="Your code will appear here"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="mb-3">
+                            <label for="code-output" class="form-label">Output</label>
+                            <div id="code-output">Results will appear here</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Context Tab -->
+            <div class="tab-pane fade" id="context" role="tabpanel" aria-labelledby="context-tab">
+                <h3>Shared Context</h3>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Add to Context</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="issue-number" class="form-label">GitHub Issue Number</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="issue-number" placeholder="Enter issue number">
+                                        <button class="btn btn-outline-secondary" type="button" id="add-issue-btn">Add Issue</button>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="pr-number" class="form-label">GitHub PR Number</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="pr-number" placeholder="Enter PR number">
+                                        <button class="btn btn-outline-secondary" type="button" id="add-pr-btn">Add PR</button>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="file-path" class="form-label">File Path</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="file-path" placeholder="Enter file path">
+                                        <button class="btn btn-outline-secondary" type="button" id="add-file-btn">Add File</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Current Context</h5>
+                            </div>
+                            <div class="card-body">
+                                <pre id="context-display">Loading context...</pre>
+                                <button id="refresh-context-btn" class="btn btn-primary">Refresh Context</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        
-        <div class="tab-content" id="test-generation">
-            <div class="section">
-                <h2>Generate Tests</h2>
-                <div class="form-group">
-                    <label for="test-code">Code to Generate Tests For:</label>
-                    <textarea id="test-code" rows="10" placeholder="Enter code to generate tests for"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="test-language">Language:</label>
-                    <select id="test-language">
-                        <option value="python">Python</option>
-                        <option value="javascript">JavaScript</option>
-                        <option value="typescript">TypeScript</option>
-                        <option value="java">Java</option>
-                        <option value="csharp">C#</option>
-                        <option value="cpp">C++</option>
-                        <option value="go">Go</option>
-                        <option value="rust">Rust</option>
-                    </select>
-                </div>
-                <button id="generate-tests-btn">Generate Tests</button>
-                <div id="generate-tests-status" class="status"></div>
-                <div class="form-group">
-                    <label for="generated-tests">Generated Tests:</label>
-                    <pre id="generated-tests" class="code-editor"></pre>
-                </div>
-            </div>
+
+        <div class="footer">
+            <p>TaskWeaver - Version <span id="version">Loading...</span></p>
+            <p><a href="https://github.com/microsoft/TaskWeaver" target="_blank">GitHub</a> | <a href="https://github.com/microsoft/TaskWeaver/issues" target="_blank">Report Issues</a></p>
         </div>
     </div>
-    
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Tab switching
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                
-                tab.classList.add('active');
-                document.getElementById(tab.getAttribute('data-tab')).classList.add('active');
+        // Fetch version information
+        fetch('/api/version')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('version').textContent = data.version;
+                } else {
+                    document.getElementById('version').textContent = 'Unknown';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching version:', error);
+                document.getElementById('version').textContent = 'Error';
+            });
+
+        // Check integration status
+        function checkStatus() {
+            fetch('/api/codegen/status')
+                .then(response => response.json())
+                .then(data => {
+                    const statusAlert = document.getElementById('status-alert');
+                    const statusMessage = document.getElementById('status-message');
+                    
+                    if (data.initialized) {
+                        statusAlert.className = 'alert alert-success';
+                        statusMessage.textContent = 'Codegen integration is initialized and ready to use.';
+                        
+                        // Show repository section
+                        document.getElementById('repo-section').style.display = 'block';
+                        
+                        // Fetch repositories
+                        fetchRepositories();
+                    } else {
+                        statusAlert.className = 'alert alert-warning';
+                        statusMessage.textContent = 'Codegen integration is not initialized. Please set up your API credentials.';
+                        
+                        // Hide repository section
+                        document.getElementById('repo-section').style.display = 'none';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking status:', error);
+                    const statusAlert = document.getElementById('status-alert');
+                    const statusMessage = document.getElementById('status-message');
+                    statusAlert.className = 'alert alert-danger';
+                    statusMessage.textContent = 'Error checking integration status. Please try again.';
+                });
+        }
+
+        // Fetch repositories
+        function fetchRepositories() {
+            fetch('/api/codegen/repositories')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const repoSelect = document.getElementById('repo-select');
+                        repoSelect.innerHTML = '<option value="">Select a repository</option>';
+                        
+                        data.repositories.forEach(repo => {
+                            const option = document.createElement('option');
+                            option.value = repo.name;
+                            option.textContent = repo.name;
+                            if (data.active_repository === repo.name) {
+                                option.selected = true;
+                            }
+                            repoSelect.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching repositories:', error);
+                });
+        }
+
+        // Initialize integration
+        document.getElementById('setup-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            const githubToken = document.getElementById('github-token').value;
+            const codegenToken = document.getElementById('codegen-token').value;
+            const ngrokToken = document.getElementById('ngrok-token').value;
+            const codegenOrgId = document.getElementById('codegen-org-id').value;
+            
+            fetch('/api/codegen/initialize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    github_token: githubToken,
+                    codegen_token: codegenToken,
+                    ngrok_token: ngrokToken,
+                    codegen_org_id: codegenOrgId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Integration initialized successfully!');
+                    checkStatus();
+                } else {
+                    alert('Failed to initialize integration. Please check your credentials.');
+                }
+            })
+            .catch(error => {
+                console.error('Error initializing integration:', error);
+                alert('Error initializing integration. Please try again.');
             });
         });
-        
+
+        // Set repository
+        document.getElementById('set-repo-btn').addEventListener('click', function() {
+            const repoName = document.getElementById('repo-select').value;
+            
+            if (!repoName) {
+                alert('Please select a repository.');
+                return;
+            }
+            
+            fetch('/api/codegen/repository', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    repo_name: repoName
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Repository set successfully!');
+                    checkStatus();
+                } else {
+                    alert('Failed to set repository.');
+                }
+            })
+            .catch(error => {
+                console.error('Error setting repository:', error);
+                alert('Error setting repository. Please try again.');
+            });
+        });
+
+        // Create task
+        document.getElementById('create-task-btn').addEventListener('click', function() {
+            const prompt = document.getElementById('task-prompt').value;
+            
+            if (!prompt) {
+                alert('Please enter a task prompt.');
+                return;
+            }
+            
+            fetch('/api/codegen/tasks', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    prompt: prompt
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Task created successfully!');
+                    document.getElementById('task-prompt').value = '';
+                    fetchTasks();
+                } else {
+                    alert('Failed to create task: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error creating task:', error);
+                alert('Error creating task. Please try again.');
+            });
+        });
+
+        // Fetch tasks
+        function fetchTasks() {
+            fetch('/api/codegen/tasks')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const tasksTable = document.getElementById('tasks-table').getElementsByTagName('tbody')[0];
+                        tasksTable.innerHTML = '';
+                        
+                        if (data.tasks && data.tasks.length > 0) {
+                            data.tasks.forEach(task => {
+                                const row = tasksTable.insertRow();
+                                
+                                // ID
+                                const idCell = row.insertCell();
+                                idCell.textContent = task.id;
+                                
+                                // Prompt
+                                const promptCell = row.insertCell();
+                                promptCell.textContent = task.prompt;
+                                
+                                // Status
+                                const statusCell = row.insertCell();
+                                statusCell.textContent = task.status || 'Unknown';
+                                
+                                // Created
+                                const createdCell = row.insertCell();
+                                createdCell.textContent = task.created_at ? new Date(task.created_at).toLocaleString() : 'N/A';
+                                
+                                // Updated
+                                const updatedCell = row.insertCell();
+                                updatedCell.textContent = task.updated_at ? new Date(task.updated_at).toLocaleString() : 'N/A';
+                                
+                                // Actions
+                                const actionsCell = row.insertCell();
+                                const refreshBtn = document.createElement('button');
+                                refreshBtn.className = 'btn btn-sm btn-outline-primary';
+                                refreshBtn.textContent = 'Refresh';
+                                refreshBtn.addEventListener('click', function() {
+                                    refreshTask(task.id);
+                                });
+                                actionsCell.appendChild(refreshBtn);
+                            });
+                        } else {
+                            const row = tasksTable.insertRow();
+                            const cell = row.insertCell();
+                            cell.colSpan = 6;
+                            cell.textContent = 'No tasks found.';
+                            cell.className = 'text-center';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching tasks:', error);
+                });
+        }
+
+        // Refresh task
+        function refreshTask(taskId) {
+            fetch(`/api/codegen/tasks/${taskId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        fetchTasks();
+                    } else {
+                        alert('Failed to refresh task: ' + (data.error || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error refreshing task:', error);
+                    alert('Error refreshing task. Please try again.');
+                });
+        }
+
         // Generate code
-        document.getElementById('generate-code-btn').addEventListener('click', async () => {
+        document.getElementById('generate-code-btn').addEventListener('click', function() {
             const prompt = document.getElementById('code-prompt').value;
             const language = document.getElementById('code-language').value;
             
             if (!prompt) {
-                document.getElementById('generate-code-status').textContent = 'Please enter a prompt';
-                document.getElementById('generate-code-status').className = 'status error';
+                alert('Please enter a code generation prompt.');
                 return;
             }
             
-            try {
-                document.getElementById('generate-code-status').textContent = 'Generating code...';
-                document.getElementById('generate-code-status').className = 'status';
-                
-                const response = await fetch('/api/codegen/generate-code', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        prompt: prompt,
-                        language: language
-                    })
-                });
-                
-                const data = await response.json();
-                
+            fetch('/api/codegen/generate-code', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    prompt: prompt,
+                    language: language
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
                 if (data.success) {
-                    document.getElementById('generate-code-status').textContent = 'Code generated successfully';
-                    document.getElementById('generate-code-status').className = 'status success';
-                    document.getElementById('generated-code').textContent = data.code || '';
+                    document.getElementById('code-editor').value = data.code || '';
+                    document.getElementById('code-output').textContent = data.explanation || 'Code generated successfully.';
                 } else {
-                    document.getElementById('generate-code-status').textContent = 'Failed to generate code: ' + (data.error || 'Unknown error');
-                    document.getElementById('generate-code-status').className = 'status error';
+                    document.getElementById('code-output').textContent = 'Failed to generate code: ' + (data.error || 'Unknown error');
                 }
-            } catch (error) {
-                document.getElementById('generate-code-status').textContent = 'Error: ' + error.message;
-                document.getElementById('generate-code-status').className = 'status error';
-            }
+            })
+            .catch(error => {
+                console.error('Error generating code:', error);
+                document.getElementById('code-output').textContent = 'Error generating code. Please try again.';
+            });
         });
-        
+
         // Analyze code
-        document.getElementById('analyze-code-btn').addEventListener('click', async () => {
-            const code = document.getElementById('analyze-code').value;
-            const language = document.getElementById('analyze-language').value;
+        document.getElementById('analyze-code-btn').addEventListener('click', function() {
+            const code = document.getElementById('code-editor').value;
+            const language = document.getElementById('code-language').value;
             
             if (!code) {
-                document.getElementById('analyze-code-status').textContent = 'Please enter code to analyze';
-                document.getElementById('analyze-code-status').className = 'status error';
+                alert('Please enter code to analyze.');
                 return;
             }
             
-            try {
-                document.getElementById('analyze-code-status').textContent = 'Analyzing code...';
-                document.getElementById('analyze-code-status').className = 'status';
-                
-                const response = await fetch('/api/codegen/analyze-code', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        code: code,
-                        language: language
-                    })
-                });
-                
-                const data = await response.json();
-                
+            fetch('/api/codegen/analyze-code', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    code: code,
+                    language: language
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
                 if (data.success) {
-                    document.getElementById('analyze-code-status').textContent = 'Code analyzed successfully';
-                    document.getElementById('analyze-code-status').className = 'status success';
-                    document.getElementById('analysis-result').textContent = data.analysis || '';
+                    document.getElementById('code-output').textContent = data.analysis || 'Analysis completed successfully.';
                 } else {
-                    document.getElementById('analyze-code-status').textContent = 'Failed to analyze code: ' + (data.error || 'Unknown error');
-                    document.getElementById('analyze-code-status').className = 'status error';
+                    document.getElementById('code-output').textContent = 'Failed to analyze code: ' + (data.error || 'Unknown error');
                 }
-            } catch (error) {
-                document.getElementById('analyze-code-status').textContent = 'Error: ' + error.message;
-                document.getElementById('analyze-code-status').className = 'status error';
-            }
+            })
+            .catch(error => {
+                console.error('Error analyzing code:', error);
+                document.getElementById('code-output').textContent = 'Error analyzing code. Please try again.';
+            });
         });
-        
+
         // Refactor code
-        document.getElementById('refactor-code-btn').addEventListener('click', async () => {
-            const code = document.getElementById('refactor-code').value;
-            const language = document.getElementById('refactor-language').value;
-            const instructions = document.getElementById('refactor-instructions').value;
-            
-            if (!code || !instructions) {
-                document.getElementById('refactor-code-status').textContent = 'Please enter code and instructions';
-                document.getElementById('refactor-code-status').className = 'status error';
-                return;
-            }
-            
-            try {
-                document.getElementById('refactor-code-status').textContent = 'Refactoring code...';
-                document.getElementById('refactor-code-status').className = 'status';
-                
-                const response = await fetch('/api/codegen/refactor-code', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        code: code,
-                        language: language,
-                        instructions: instructions
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    document.getElementById('refactor-code-status').textContent = 'Code refactored successfully';
-                    document.getElementById('refactor-code-status').className = 'status success';
-                    document.getElementById('refactored-code').textContent = data.refactored_code || '';
-                } else {
-                    document.getElementById('refactor-code-status').textContent = 'Failed to refactor code: ' + (data.error || 'Unknown error');
-                    document.getElementById('refactor-code-status').className = 'status error';
-                }
-            } catch (error) {
-                document.getElementById('refactor-code-status').textContent = 'Error: ' + error.message;
-                document.getElementById('refactor-code-status').className = 'status error';
-            }
-        });
-        
-        // Generate tests
-        document.getElementById('generate-tests-btn').addEventListener('click', async () => {
-            const code = document.getElementById('test-code').value;
-            const language = document.getElementById('test-language').value;
+        document.getElementById('refactor-code-btn').addEventListener('click', function() {
+            const code = document.getElementById('code-editor').value;
+            const language = document.getElementById('code-language').value;
+            const instructions = prompt('Enter refactoring instructions:');
             
             if (!code) {
-                document.getElementById('generate-tests-status').textContent = 'Please enter code to generate tests for';
-                document.getElementById('generate-tests-status').className = 'status error';
+                alert('Please enter code to refactor.');
                 return;
             }
             
-            try {
-                document.getElementById('generate-tests-status').textContent = 'Generating tests...';
-                document.getElementById('generate-tests-status').className = 'status';
-                
-                const response = await fetch('/api/codegen/generate-tests', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        code: code,
-                        language: language
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    document.getElementById('generate-tests-status').textContent = 'Tests generated successfully';
-                    document.getElementById('generate-tests-status').className = 'status success';
-                    document.getElementById('generated-tests').textContent = data.tests || '';
-                } else {
-                    document.getElementById('generate-tests-status').textContent = 'Failed to generate tests: ' + (data.error || 'Unknown error');
-                    document.getElementById('generate-tests-status').className = 'status error';
-                }
-            } catch (error) {
-                document.getElementById('generate-tests-status').textContent = 'Error: ' + error.message;
-                document.getElementById('generate-tests-status').className = 'status error';
+            if (!instructions) {
+                return;
             }
+            
+            fetch('/api/codegen/refactor-code', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    code: code,
+                    language: language,
+                    instructions: instructions
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('code-editor').value = data.refactored_code || '';
+                    document.getElementById('code-output').textContent = data.explanation || 'Code refactored successfully.';
+                } else {
+                    document.getElementById('code-output').textContent = 'Failed to refactor code: ' + (data.error || 'Unknown error');
+                }
+            })
+            .catch(error => {
+                console.error('Error refactoring code:', error);
+                document.getElementById('code-output').textContent = 'Error refactoring code. Please try again.';
+            });
         });
+
+        // Generate tests
+        document.getElementById('generate-tests-btn').addEventListener('click', function() {
+            const code = document.getElementById('code-editor').value;
+            const language = document.getElementById('code-language').value;
+            
+            if (!code) {
+                alert('Please enter code to generate tests for.');
+                return;
+            }
+            
+            fetch('/api/codegen/generate-tests', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    code: code,
+                    language: language
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('code-output').textContent = data.tests || 'Tests generated successfully.';
+                } else {
+                    document.getElementById('code-output').textContent = 'Failed to generate tests: ' + (data.error || 'Unknown error');
+                }
+            })
+            .catch(error => {
+                console.error('Error generating tests:', error);
+                document.getElementById('code-output').textContent = 'Error generating tests. Please try again.';
+            });
+        });
+
+        // Add issue to context
+        document.getElementById('add-issue-btn').addEventListener('click', function() {
+            const issueNumber = document.getElementById('issue-number').value;
+            
+            if (!issueNumber) {
+                alert('Please enter an issue number.');
+                return;
+            }
+            
+            fetch('/api/codegen/context/issue', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    issue_number: parseInt(issueNumber)
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Issue added to context successfully!');
+                    document.getElementById('issue-number').value = '';
+                    refreshContext();
+                } else {
+                    alert('Failed to add issue to context: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error adding issue to context:', error);
+                alert('Error adding issue to context. Please try again.');
+            });
+        });
+
+        // Add PR to context
+        document.getElementById('add-pr-btn').addEventListener('click', function() {
+            const prNumber = document.getElementById('pr-number').value;
+            
+            if (!prNumber) {
+                alert('Please enter a PR number.');
+                return;
+            }
+            
+            fetch('/api/codegen/context/pr', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    pr_number: parseInt(prNumber)
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('PR added to context successfully!');
+                    document.getElementById('pr-number').value = '';
+                    refreshContext();
+                } else {
+                    alert('Failed to add PR to context: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error adding PR to context:', error);
+                alert('Error adding PR to context. Please try again.');
+            });
+        });
+
+        // Add file to context
+        document.getElementById('add-file-btn').addEventListener('click', function() {
+            const filePath = document.getElementById('file-path').value;
+            
+            if (!filePath) {
+                alert('Please enter a file path.');
+                return;
+            }
+            
+            fetch('/api/codegen/context/file', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    file_path: filePath
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('File added to context successfully!');
+                    document.getElementById('file-path').value = '';
+                    refreshContext();
+                } else {
+                    alert('Failed to add file to context: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error adding file to context:', error);
+                alert('Error adding file to context. Please try again.');
+            });
+        });
+
+        // Refresh context
+        function refreshContext() {
+            fetch('/api/codegen/context')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('context-display').textContent = JSON.stringify(data.context, null, 2);
+                    } else {
+                        document.getElementById('context-display').textContent = 'Failed to fetch context: ' + (data.error || 'Unknown error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching context:', error);
+                    document.getElementById('context-display').textContent = 'Error fetching context. Please try again.';
+                });
+        }
+
+        // Refresh context button
+        document.getElementById('refresh-context-btn').addEventListener('click', refreshContext);
+
+        // Initialize
+        checkStatus();
+        fetchTasks();
+        refreshContext();
     </script>
 </body>
 </html>

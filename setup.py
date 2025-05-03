@@ -37,6 +37,10 @@ def create_zip_file():
 
     root_dir = Path(__file__).parent
     ext_zip_file = root_dir / "taskweaver" / "cli" / "taskweaver-project.zip"
+    
+    # Create the cli directory if it doesn't exist
+    os.makedirs(os.path.dirname(ext_zip_file), exist_ok=True)
+    
     if os.path.exists(ext_zip_file):
         os.remove(ext_zip_file)
 
@@ -78,25 +82,39 @@ packages = [
 try:
     setuptools.setup(
         install_requires=required_packages,  # Dependencies
-        extras_require={},
+        extras_require={
+            "dev": [
+                "pytest>=7.4.0",
+                "black>=23.7.0",
+                "isort>=5.12.0",
+                "flake8>=6.1.0",
+                "mypy>=1.5.1",
+            ],
+        },
         # Minimum Python version
         python_requires=">=3.10",
         name="taskweaver",  # Package name
         version=version_str,  # Version
         author="Microsoft Taskweaver",  # Author name
         author_email="taskweaver@microsoft.com",  # Author mail
-        description="Python package taskweaver",  # Short package description
+        description="A code-first agent framework for seamlessly planning and executing data analytics tasks",  # Short package description
         # Long package description
         long_description=long_description,
         long_description_content_type="text/markdown",
         # Searches throughout all dirs for files to include
         packages=packages,
         # Must be true to include files depicted in MANIFEST.in
-        # include_package_data=True,
+        include_package_data=True,
         license_files=["LICENSE"],  # License file
         classifiers=[
             "Programming Language :: Python :: 3",
+            "Programming Language :: Python :: 3.10",
+            "Programming Language :: Python :: 3.11",
             "Operating System :: OS Independent",
+            "Development Status :: 4 - Beta",
+            "Intended Audience :: Developers",
+            "Intended Audience :: Science/Research",
+            "Topic :: Scientific/Engineering :: Artificial Intelligence",
         ],
         package_data={
             "taskweaver": ["**/*.yaml", "**/*.yml"],

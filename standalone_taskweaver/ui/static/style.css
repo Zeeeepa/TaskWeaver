@@ -2,7 +2,6 @@
 
 body {
     background-color: #f8f9fa;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .navbar-brand {
@@ -10,86 +9,77 @@ body {
 }
 
 .card {
-    border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    margin-bottom: 20px;
+    border: none;
 }
 
 .card-header {
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
+    background-color: #f1f8ff;
+    border-bottom: 1px solid #e1e4e8;
 }
 
 .chat-container {
     height: 300px;
     overflow-y: auto;
-    border: 1px solid #dee2e6;
+    border: 1px solid #e1e4e8;
     border-radius: 4px;
     padding: 10px;
     background-color: #fff;
 }
 
-.user-message, .system-message {
+.system-message {
+    background-color: #f1f8ff;
+    border-radius: 8px;
+    padding: 10px;
     margin-bottom: 10px;
-    padding: 8px 12px;
-    border-radius: 18px;
     max-width: 80%;
-    word-wrap: break-word;
 }
 
 .user-message {
-    background-color: #007bff;
-    color: white;
+    background-color: #e1f5fe;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+    max-width: 80%;
     margin-left: auto;
-    border-bottom-right-radius: 4px;
+    text-align: right;
 }
 
-.system-message {
-    background-color: #e9ecef;
-    color: #212529;
-    margin-right: auto;
-    border-bottom-left-radius: 4px;
+.system-message.error {
+    background-color: #ffebee;
+    color: #d32f2f;
 }
 
-.text-danger {
-    color: #dc3545;
+.alert {
+    margin-top: 10px;
+    margin-bottom: 10px;
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-    body {
-        background-color: #212529;
-        color: #f8f9fa;
-    }
-    
-    .card {
-        background-color: #343a40;
-        border-color: #495057;
-    }
-    
-    .card-header {
-        background-color: #343a40;
-        border-color: #495057;
-    }
-    
-    .form-control {
-        background-color: #495057;
-        border-color: #6c757d;
-        color: #f8f9fa;
-    }
-    
-    .form-control::placeholder {
-        color: #adb5bd;
-    }
-    
-    .chat-container {
-        background-color: #343a40;
-        border-color: #495057;
-    }
-    
-    .system-message {
-        background-color: #495057;
-        color: #f8f9fa;
+/* Form styles */
+.form-control, .form-select {
+    border-radius: 4px;
+    border: 1px solid #ced4da;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.btn-primary {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .system-message, .user-message {
+        max-width: 90%;
     }
 }
 

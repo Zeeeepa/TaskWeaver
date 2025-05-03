@@ -47,6 +47,53 @@ class TaskWeaverUI:
         self.requirements_manager = None
         self.is_initialized = False
         
+        # OpenAI settings
+        self.openai_settings = {
+            "api_key": os.environ.get("OPENAI_API_KEY", ""),
+            "api_base": os.environ.get("OPENAI_API_BASE", "https://api.openai.com/v1"),
+            "model": os.environ.get("OPENAI_MODEL", "gpt-4")
+        }
+        
+    def set_openai_settings(self, 
+                           api_key: str,
+                           api_base: Optional[str] = None,
+                           model: Optional[str] = None) -> bool:
+        """
+        Set OpenAI API settings
+        
+        Args:
+            api_key: OpenAI API key
+            api_base: OpenAI API base URL (optional)
+            model: OpenAI model name (optional)
+            
+        Returns:
+            bool: True if settings were updated successfully
+        """
+        try:
+            # Update settings
+            self.openai_settings["api_key"] = api_key
+            
+            if api_base:
+                self.openai_settings["api_base"] = api_base
+                
+            if model:
+                self.openai_settings["model"] = model
+                
+            # Set environment variables
+            os.environ["OPENAI_API_KEY"] = api_key
+            
+            if api_base:
+                os.environ["OPENAI_API_BASE"] = api_base
+                
+            if model:
+                os.environ["OPENAI_MODEL"] = model
+                
+            self.logger.info("OpenAI settings updated successfully")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating OpenAI settings: {str(e)}")
+            return False
+        
     def initialize_integration(self, 
                               github_token: str,
                               codegen_token: str,

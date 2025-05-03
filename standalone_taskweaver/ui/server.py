@@ -53,6 +53,13 @@ api_credentials = {
     "codegen_org_id": ""
 }
 
+# Store OpenAI settings
+openai_settings = {
+    "api_key": "",
+    "api_base": "",
+    "model": ""
+}
+
 # Store GitHub repositories
 github_repos = []
 
@@ -108,6 +115,11 @@ class FileRequest(BaseModel):
 class RequirementsRequest(BaseModel):
     requirements: str
 
+class OpenAISettingsRequest(BaseModel):
+    openai_api_key: str
+    openai_api_base: Optional[str] = None
+    openai_model: Optional[str] = None
+
 # Initialize UI
 def get_ui():
     global ui
@@ -138,6 +150,40 @@ async def get_codegen_status():
     ui = get_ui()
     status = ui.get_integration_status()
     return status
+
+@app.post("/api/openai-settings")
+async def set_openai_settings(
+    openai_api_key: str = Form(...),
+    openai_api_base: str = Form(None),
+    openai_model: str = Form(None)
+):
+    """
+    Set OpenAI API settings
+    """
+    ui = get_ui()
+    
+    # Update OpenAI settings
+    openai_settings["api_key"] = openai_api_key
+    if openai_api_base:
+        openai_settings["api_base"] = openai_api_base
+    if openai_model:
+        openai_settings["model"] = openai_model
+    
+    # Set environment variables
+    os.environ["OPENAI_API_KEY"] = openai_api_key
+    if openai_api_base:
+        os.environ["OPENAI_API_BASE"] = openai_api_base
+    if openai_model:
+        os.environ["OPENAI_MODEL"] = openai_model
+    
+    # Update UI settings
+    ui.set_openai_settings(
+        api_key=openai_api_key,
+        api_base=openai_api_base,
+        model=openai_model
+    )
+    
+    return {"status": "success", "message": "OpenAI settings updated successfully"}
 
 @app.post("/api/credentials")
 async def set_credentials(

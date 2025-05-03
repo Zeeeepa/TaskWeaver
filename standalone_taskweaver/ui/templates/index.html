@@ -42,6 +42,34 @@
             </div>
         </div>
         
+        <!-- OpenAI API Settings Section -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>OpenAI API Settings</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="openai-settings-form">
+                            <div class="mb-3">
+                                <label for="openai-api-key" class="form-label">OpenAI API Key</label>
+                                <input type="password" class="form-control" id="openai-api-key" name="openai_api_key" placeholder="Enter your OpenAI API key">
+                            </div>
+                            <div class="mb-3">
+                                <label for="openai-api-base" class="form-label">OpenAI API Base URL (optional)</label>
+                                <input type="text" class="form-control" id="openai-api-base" name="openai_api_base" placeholder="Enter your OpenAI API base URL (default: https://api.openai.com/v1)">
+                            </div>
+                            <div class="mb-3">
+                                <label for="openai-model" class="form-label">OpenAI Model (optional)</label>
+                                <input type="text" class="form-control" id="openai-model" name="openai_model" placeholder="Enter your preferred OpenAI model (default: gpt-4)">
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save OpenAI Settings</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- API Credentials Section -->
         <div class="row mt-4">
             <div class="col-12">
@@ -133,4 +161,3 @@
     <script src="/static/script.js"></script>
 </body>
 </html>
-

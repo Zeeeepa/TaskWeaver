@@ -29,7 +29,18 @@ Examples:
 """
 
 import sys
-from main import main as main_func
+import importlib.util
+from pathlib import Path
+
+# Dynamically import main.py from the package root
+spec = importlib.util.spec_from_file_location(
+    "main", 
+    str(Path(__file__).parent.parent / "main.py")
+)
+main_module = importlib.util.module_from_spec(spec)
+sys.modules["main"] = main_module
+spec.loader.exec_module(main_module)
+main_func = main_module.main
 
 def main():
     """

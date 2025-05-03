@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Codegen Agent Implementation for TaskWeaver
+Codegen Agent Implementation
 
-This module provides a comprehensive implementation of the Codegen agent
-that supports multithreaded requests to the Codegen API while referencing
+This module provides the main implementation of the Codegen agent, which
+supports multithreaded requests to the Codegen API while referencing
 project requirements and context.
 """
 
@@ -27,17 +27,7 @@ from standalone_taskweaver.memory import Memory
 from standalone_taskweaver.codegen_agent.requirements_manager import RequirementsManager, AtomicTask, DependencyGraph
 from standalone_taskweaver.codegen_agent.concurrent_execution import ConcurrentExecutionEngine, TaskStatus, TaskResult
 from standalone_taskweaver.codegen_agent.concurrent_context_manager import ConcurrentContextManager
-
-# Import Codegen SDK
-try:
-    from codegen import Agent
-    from codegen.extensions.events.client import CodegenClient
-except ImportError:
-    print("Codegen SDK not found. Installing...")
-    import subprocess
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "codegen"])
-    from codegen import Agent
-    from codegen.extensions.events.client import CodegenClient
+from standalone_taskweaver.codegen_agent.utils import initialize_codegen_client, safe_execute, validate_required_params
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -47,18 +37,18 @@ class CodegenAgentStatus(Enum):
     """
     Status of the Codegen agent
     """
-    IDLE = "idle"
+    UNINITIALIZED = "uninitialized"
     INITIALIZING = "initializing"
-    RUNNING = "running"
+    READY = "ready"
+    BUSY = "busy"
     ERROR = "error"
-    COMPLETED = "completed"
 
 class CodegenAgent:
     """
-    Codegen Agent Implementation for TaskWeaver
+    Codegen agent implementation
     
-    This class provides a comprehensive implementation of the Codegen agent
-    that supports multithreaded requests to the Codegen API while referencing
+    This class provides the main implementation of the Codegen agent, which
+    supports multithreaded requests to the Codegen API while referencing
     project requirements and context.
     """
     
@@ -68,78 +58,103 @@ class CodegenAgent:
         app: TaskWeaverApp,
         config: AppConfigSource,
         logger: TelemetryLogger,
-        requirements_manager: Optional[RequirementsManager] = None,
-        context_manager: Optional[ConcurrentContextManager] = None,
-        execution_engine: Optional[ConcurrentExecutionEngine] = None,
         memory: Optional[Memory] = None,
     ) -> None:
         self.app = app
         self.config = config
         self.logger = logger
-        
-        # Create a memory instance if not provided
         self.memory = memory or Memory()
         
-        # Initialize components
-        self.requirements_manager = requirements_manager or RequirementsManager(app, config, logger)
-        self.context_manager = context_manager or ConcurrentContextManager(app, config, logger, self.memory)
-        self.execution_engine = execution_engine or ConcurrentExecutionEngine(app, config, logger, self.memory)
-        
-        # Codegen client
+        # Codegen agent
+        self.codegen_agent = None
         self.codegen_client = None
-        self.codegen_token = None
-        self.agent = None
         
         # Status
-        self.status = CodegenAgentStatus.IDLE
-        self.error_message = None
-        
-        # Task tracking
-        self.tasks = {}
-        self.task_results = {}
-        self.task_lock = threading.Lock()
+        self.status = CodegenAgentStatus.UNINITIALIZED
         
         # Project context
         self.project_name = None
         self.project_description = None
         self.requirements_text = None
         
+        # Execution engine
+        self.execution_engine = ConcurrentExecutionEngine(
+            app=app,
+            config=config,
+            logger=logger
+        )
+        
+        # Context manager
+        self.context_manager = ConcurrentContextManager(
+            app=app,
+            config=config,
+            logger=logger,
+            memory=self.memory
+        )
+    
     def initialize(self, codegen_token: str) -> bool:
         """
         Initialize the Codegen agent with the provided token
-        
+
         Args:
             codegen_token: Codegen API token
-            
+
         Returns:
             bool: True if initialization was successful, False otherwise
+            
+        Raises:
+            ValueError: If the token is empty or invalid
+            ImportError: If the Codegen SDK is not installed
         """
+        if not codegen_token or not isinstance(codegen_token, str) or not codegen_token.strip():
+            self.logger.error("Invalid Codegen token provided: token cannot be empty")
+            self.status = CodegenAgentStatus.ERROR
+            return False
+            
         try:
             self.status = CodegenAgentStatus.INITIALIZING
-            self.codegen_token = codegen_token
             
-            # Initialize Codegen client
-            self.codegen_client = CodegenClient(base_url="https://api.codegen.sh")
-            self.agent = Agent(api_key=codegen_token)
+            # Initialize the Codegen agent
+            self.codegen_agent = initialize_codegen_client(codegen_token)
             
-            # Initialize components
-            self.requirements_manager.initialize()
-            self.context_manager.initialize()
-            self.execution_engine.initialize(self.agent)
+            if not self.codegen_agent:
+                self.status = CodegenAgentStatus.ERROR
+                self.logger.error("Failed to initialize Codegen agent: client initialization returned None")
+                return False
             
-            self.status = CodegenAgentStatus.IDLE
-            logger.info("Codegen agent initialized successfully")
+            # Initialize the Codegen client
+            try:
+                from codegen.extensions.events.client import CodegenClient
+                self.codegen_client = CodegenClient(token=codegen_token)
+                self.logger.info("Codegen client initialized successfully")
+            except ImportError as e:
+                self.logger.warning(f"CodegenClient not available: {str(e)}. Some features may not work.")
+                self.codegen_client = None
+            except Exception as e:
+                self.logger.warning(f"Failed to initialize CodegenClient: {str(e)}. Some features may not work.")
+                self.codegen_client = None
+            
+            # Initialize the execution engine
+            self.execution_engine.codegen_agent = self.codegen_agent
+            
+            # Update status
+            self.status = CodegenAgentStatus.READY
+            self.logger.info("Codegen agent initialized successfully")
+            
             return True
-        except Exception as e:
+        except ImportError as e:
+            self.logger.error(f"Failed to import required modules: {str(e)}", exc_info=True)
             self.status = CodegenAgentStatus.ERROR
-            self.error_message = str(e)
-            logger.error(f"Failed to initialize Codegen agent: {str(e)}")
+            return False
+        except Exception as e:
+            self.logger.error(f"Failed to initialize Codegen agent: {str(e)}", exc_info=True)
+            self.status = CodegenAgentStatus.ERROR
             return False
     
     def set_project_context(
-        self, 
-        project_name: str, 
-        project_description: str, 
+        self,
+        project_name: str,
+        project_description: str,
         requirements_text: str
     ) -> None:
         """
@@ -148,8 +163,22 @@ class CodegenAgent:
         Args:
             project_name: Name of the project
             project_description: Description of the project
-            requirements_text: Requirements text from the conversation with the user
+            requirements_text: Requirements text
         """
+        # Validate parameters
+        valid, error_msg = validate_required_params(
+            {
+                "project_name": project_name,
+                "project_description": project_description,
+                "requirements_text": requirements_text
+            },
+            ["project_name", "project_description", "requirements_text"]
+        )
+        
+        if not valid:
+            raise ValueError(error_msg)
+        
+        # Set project context
         self.project_name = project_name
         self.project_description = project_description
         self.requirements_text = requirements_text
@@ -160,80 +189,85 @@ class CodegenAgent:
             project_description=project_description,
             requirements_text=requirements_text
         )
-        
-        # Parse requirements
-        self.requirements_manager.parse_requirements(requirements_text)
-        
-        logger.info(f"Project context set: {project_name}")
     
     def execute_tasks(self, max_concurrent_tasks: int = 3) -> Dict[str, Any]:
         """
-        Execute tasks based on the requirements
+        Execute tasks based on the project context
         
         Args:
-            max_concurrent_tasks: Maximum number of concurrent tasks to execute
+            max_concurrent_tasks: Maximum number of concurrent tasks
             
         Returns:
-            Dict[str, Any]: Results of the task execution
+            Dict[str, Any]: Results of the tasks
         """
+        if self.status != CodegenAgentStatus.READY:
+            raise ValueError("Codegen agent not initialized or not ready")
+        
         try:
-            self.status = CodegenAgentStatus.RUNNING
+            self.status = CodegenAgentStatus.BUSY
             
-            # Get tasks from requirements manager
-            tasks = self.requirements_manager.get_atomic_tasks()
+            # Create tasks from requirements
+            requirements_manager = RequirementsManager(
+                app=self.app,
+                config=self.config,
+                logger=self.logger,
+                codegen_integration=None
+            )
             
-            # Set up execution engine
-            self.execution_engine.set_max_concurrent_tasks(max_concurrent_tasks)
-            self.execution_engine.set_context_manager(self.context_manager)
+            tasks = requirements_manager.create_atomic_tasks_from_requirements(
+                self.requirements_text
+            )
             
             # Execute tasks
             results = self.execution_engine.execute_tasks(tasks)
             
-            # Update task results
-            with self.task_lock:
-                self.task_results = results
+            # Update status
+            self.status = CodegenAgentStatus.READY
             
-            self.status = CodegenAgentStatus.COMPLETED
             return results
         except Exception as e:
+            self.logger.error(f"Error executing tasks: {str(e)}", exc_info=True)
             self.status = CodegenAgentStatus.ERROR
-            self.error_message = str(e)
-            logger.error(f"Failed to execute tasks: {str(e)}")
             return {"error": str(e)}
     
     async def execute_tasks_async(self, max_concurrent_tasks: int = 3) -> Dict[str, Any]:
         """
-        Execute tasks asynchronously based on the requirements
+        Execute tasks asynchronously based on the project context
         
         Args:
-            max_concurrent_tasks: Maximum number of concurrent tasks to execute
+            max_concurrent_tasks: Maximum number of concurrent tasks
             
         Returns:
-            Dict[str, Any]: Results of the task execution
+            Dict[str, Any]: Results of the tasks
         """
+        if self.status != CodegenAgentStatus.READY:
+            raise ValueError("Codegen agent not initialized or not ready")
+        
         try:
-            self.status = CodegenAgentStatus.RUNNING
+            self.status = CodegenAgentStatus.BUSY
             
-            # Get tasks from requirements manager
-            tasks = self.requirements_manager.get_atomic_tasks()
+            # Create tasks from requirements
+            requirements_manager = RequirementsManager(
+                app=self.app,
+                config=self.config,
+                logger=self.logger,
+                codegen_integration=None
+            )
             
-            # Set up execution engine
-            self.execution_engine.set_max_concurrent_tasks(max_concurrent_tasks)
-            self.execution_engine.set_context_manager(self.context_manager)
+            tasks = requirements_manager.create_atomic_tasks_from_requirements(
+                self.requirements_text
+            )
             
             # Execute tasks asynchronously
             results = await self.execution_engine.execute_tasks_async(tasks)
             
-            # Update task results
-            with self.task_lock:
-                self.task_results = results
+            # Update status
+            self.status = CodegenAgentStatus.READY
             
-            self.status = CodegenAgentStatus.COMPLETED
             return results
         except Exception as e:
+            self.logger.error(f"Error executing tasks asynchronously: {str(e)}", exc_info=True)
             self.status = CodegenAgentStatus.ERROR
-            self.error_message = str(e)
-            logger.error(f"Failed to execute tasks asynchronously: {str(e)}")
             return {"error": str(e)}
     
     def execute_single_task(self, task: AtomicTask) -> TaskResult:
@@ -244,31 +278,29 @@ class CodegenAgent:
             task: Task to execute
             
         Returns:
-            TaskResult: Result of the task execution
+            TaskResult: Result of the task
         """
+        if self.status != CodegenAgentStatus.READY:
+            raise ValueError("Codegen agent not initialized or not ready")
+        
         try:
-            # Prepare context
-            context = self.context_manager.get_context_for_task(task)
-            
-            # Execute task
-            result = self.execution_engine.execute_single_task(task, context)
-            
-            # Update task results
-            with self.task_lock:
-                self.task_results[task.id] = result
+            # Execute the task
+            result = self.execution_engine.execute_single_task(task)
             
             return result
         except Exception as e:
-            logger.error(f"Failed to execute task {task.id}: {str(e)}")
+            self.logger.error(f"Error executing task: {str(e)}", exc_info=True)
             return TaskResult(
-                task_id=task.id,
+                id=task.id,
                 status=TaskStatus.FAILED,
-                output=None,
+                result=None,
                 error=str(e),
-                execution_time=0
+                start_time=time.time(),
+                end_time=time.time(),
+                duration=0
             )
     
-    def get_task_status(self, task_id: str) -> Optional[TaskStatus]:
+    def get_task_status(self, task_id: str) -> Dict[str, Any]:
         """
         Get the status of a task
         
@@ -276,14 +308,11 @@ class CodegenAgent:
             task_id: ID of the task
             
         Returns:
-            Optional[TaskStatus]: Status of the task, or None if the task is not found
+            Dict[str, Any]: Status of the task
         """
-        with self.task_lock:
-            if task_id in self.task_results:
-                return self.task_results[task_id].status
-        return None
+        return self.execution_engine.get_task_status(task_id)
     
-    def get_task_result(self, task_id: str) -> Optional[TaskResult]:
+    def get_task_result(self, task_id: str) -> Dict[str, Any]:
         """
         Get the result of a task
         
@@ -291,22 +320,18 @@ class CodegenAgent:
             task_id: ID of the task
             
         Returns:
-            Optional[TaskResult]: Result of the task, or None if the task is not found
+            Dict[str, Any]: Result of the task
         """
-        with self.task_lock:
-            if task_id in self.task_results:
-                return self.task_results[task_id]
-        return None
+        return self.execution_engine.get_task_result(task_id)
     
-    def get_all_task_results(self) -> Dict[str, TaskResult]:
+    def cancel_all_tasks(self) -> bool:
         """
-        Get all task results
+        Cancel all running tasks
         
         Returns:
-            Dict[str, TaskResult]: All task results
+            bool: True if cancellation was successful, False otherwise
         """
-        with self.task_lock:
-            return self.task_results.copy()
+        return self.execution_engine.cancel_all_tasks()
     
     def get_status(self) -> Dict[str, Any]:
         """
@@ -317,24 +342,7 @@ class CodegenAgent:
         """
         return {
             "status": self.status.value,
-            "error_message": self.error_message,
             "project_name": self.project_name,
-            "task_count": len(self.task_results),
-            "completed_tasks": sum(1 for result in self.task_results.values() if result.status == TaskStatus.COMPLETED),
-            "failed_tasks": sum(1 for result in self.task_results.values() if result.status == TaskStatus.FAILED),
+            "project_description": self.project_description,
+            "execution_engine": self.execution_engine.get_status()
         }
-    
-    def cancel_all_tasks(self) -> bool:
-        """
-        Cancel all running tasks
-        
-        Returns:
-            bool: True if cancellation was successful, False otherwise
-        """
-        try:
-            self.execution_engine.cancel_all_tasks()
-            self.status = CodegenAgentStatus.IDLE
-            return True
-        except Exception as e:
-            logger.error(f"Failed to cancel tasks: {str(e)}")
-            return False

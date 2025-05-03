@@ -1,24 +1,32 @@
-# TaskWeaver Project Configuration
-name: TaskWeaver Project
-version: 0.0.1
-description: A TaskWeaver project template
+# TaskWeaver Configuration
 
-# Server configuration
-server:
-  host: 127.0.0.1
-  port: 8080
+# Application settings
+app:
+  name: TaskWeaver
+  version: 0.0.12a0
   debug: false
+  port: 8000
+  host: 127.0.0.1
 
-# Codegen integration configuration
-codegen:
-  enabled: true
-  api_key: ""  # Set your API key here or via environment variable
-  base_url: "https://api.codegen.sh"
-  timeout: 60  # Timeout in seconds
+# API settings
+api:
+  openai:
+    api_key: ${OPENAI_API_KEY}
+    model: gpt-4-turbo
+  codegen:
+    api_key: ${CODEGEN_API_KEY}
+    endpoint: https://api.codegen.sh
 
-# Logging configuration
+# Logging settings
 logging:
   level: INFO
-  file: logs/taskweaver.log
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: logs/taskweaver.log
+
+# UI settings
+ui:
+  theme: light
+  language: en
+  enable_web_ui: true
+  enable_desktop_ui: true
 

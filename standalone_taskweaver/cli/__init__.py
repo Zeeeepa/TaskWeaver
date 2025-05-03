@@ -1,2 +1,4 @@
-# CLI package initialization
+"""
+CLI module for TaskWeaver.
+"""
 

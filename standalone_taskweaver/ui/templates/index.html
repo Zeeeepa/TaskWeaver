@@ -1,225 +1,651 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TaskWeaver with Codegen</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/static/style.css" rel="stylesheet">
+    <title>TaskWeaver UI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #333;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .section {
+            background-color: white;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .status {
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            background-color: #ddd;
+            cursor: pointer;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+        }
+        .tab.active {
+            background-color: white;
+            border-bottom: 2px solid #4CAF50;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .step {
+            background-color: #f9f9f9;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border-left: 3px solid #4CAF50;
+        }
+        .step-title {
+            font-weight: bold;
+        }
+        .step-description {
+            margin-top: 5px;
+            color: #666;
+        }
+        .step-status {
+            margin-top: 5px;
+            font-size: 0.9em;
+        }
+        .step-status.completed {
+            color: #3c763d;
+        }
+        .step-status.failed {
+            color: #a94442;
+        }
+        .step-status.pending {
+            color: #8a6d3b;
+        }
+        .step-status.running {
+            color: #31708f;
+        }
+    </style>
 </head>
 <body>
+    <div class="header">
+        <h1>TaskWeaver UI with Codegen Integration</h1>
+    </div>
+    
     <div class="container">
-        <h1 class="text-center mb-4">TaskWeaver with Codegen</h1>
+        <div class="tabs">
+            <div class="tab active" data-tab="initialization">Initialization</div>
+            <div class="tab" data-tab="project">Project</div>
+            <div class="tab" data-tab="deployment">Deployment</div>
+            <div class="tab" data-tab="status">Status</div>
+        </div>
         
-        <ul class="nav nav-tabs" id="myTab" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="setup-tab" data-bs-toggle="tab" data-bs-target="#setup" type="button" role="tab" aria-controls="setup" aria-selected="true">Setup</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="chat-tab" data-bs-toggle="tab" data-bs-target="#chat" type="button" role="tab" aria-controls="chat" aria-selected="false">Chat</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="requirements-tab" data-bs-toggle="tab" data-bs-target="#requirements" type="button" role="tab" aria-controls="requirements" aria-selected="false">Requirements</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="codegen-tab" data-bs-toggle="tab" data-bs-target="#codegen" type="button" role="tab" aria-controls="codegen" aria-selected="false">Codegen</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="tasks-tab" data-bs-toggle="tab" data-bs-target="#tasks" type="button" role="tab" aria-controls="tasks" aria-selected="false">Tasks</button>
-            </li>
-        </ul>
+        <div class="tab-content active" id="initialization">
+            <div class="section">
+                <h2>Initialize Codegen Integration</h2>
+                <div class="form-group">
+                    <label for="github-token">GitHub Token:</label>
+                    <input type="text" id="github-token" placeholder="Enter GitHub token">
+                </div>
+                <div class="form-group">
+                    <label for="codegen-token">Codegen Token:</label>
+                    <input type="text" id="codegen-token" placeholder="Enter Codegen token">
+                </div>
+                <div class="form-group">
+                    <label for="ngrok-token">Ngrok Token:</label>
+                    <input type="text" id="ngrok-token" placeholder="Enter Ngrok token">
+                </div>
+                <div class="form-group">
+                    <label for="codegen-org-id">Codegen Organization ID:</label>
+                    <input type="text" id="codegen-org-id" placeholder="Enter Codegen organization ID">
+                </div>
+                <button id="initialize-btn">Initialize</button>
+                <div id="initialize-status" class="status"></div>
+            </div>
+            
+            <div class="section">
+                <h2>Repository Selection</h2>
+                <div class="form-group">
+                    <label for="repository">Select Repository:</label>
+                    <select id="repository" disabled>
+                        <option value="">Select a repository</option>
+                    </select>
+                </div>
+                <button id="set-repository-btn" disabled>Set Repository</button>
+                <div id="repository-status" class="status"></div>
+            </div>
+        </div>
         
-        <div class="tab-content" id="myTabContent">
-            <!-- Setup Tab -->
-            <div class="tab-pane fade show active" id="setup" role="tabpanel" aria-labelledby="setup-tab">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">API Credentials</h5>
-                                <span id="connection-status" class="badge bg-secondary status-badge">Not Connected</span>
-                            </div>
-                            <div class="card-body">
-                                <form id="credentials-form">
-                                    <div class="mb-3">
-                                        <label for="github-token" class="form-label">GitHub Token</label>
-                                        <input type="password" class="form-control" id="github-token" placeholder="Enter GitHub token">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="codegen-token" class="form-label">Codegen Token</label>
-                                        <input type="password" class="form-control" id="codegen-token" placeholder="Enter Codegen token">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="ngrok-token" class="form-label">ngrok Token</label>
-                                        <input type="password" class="form-control" id="ngrok-token" placeholder="Enter ngrok token">
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="codegen-org-id" class="form-label">Codegen Organization ID</label>
-                                        <input type="text" class="form-control" id="codegen-org-id" placeholder="Enter Codegen organization ID">
-                                    </div>
-                                    <button type="submit" class="btn btn-primary">Connect</button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5 class="mb-0">GitHub Repositories</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="mb-3">
-                                    <select class="form-select" id="repo-select" disabled>
-                                        <option selected>Select a repository</option>
-                                    </select>
-                                </div>
-                                <button id="set-repo-btn" class="btn btn-primary" disabled>Set Repository</button>
-                                <div class="mt-3">
-                                    <div id="repo-details" class="d-none">
-                                        <h6>Repository Details</h6>
-                                        <p id="repo-description"></p>
-                                        <p><strong>Language:</strong> <span id="repo-language"></span></p>
-                                        <p><strong>Stars:</strong> <span id="repo-stars"></span> | <strong>Forks:</strong> <span id="repo-forks"></span></p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="card mt-3">
-                            <div class="card-header">
-                                <h5 class="mb-0">Integration Status</h5>
-                            </div>
-                            <div class="card-body">
-                                <ul class="list-group">
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        GitHub Connected
-                                        <span id="github-status" class="badge bg-secondary">Unknown</span>
-                                    </li>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        Codegen Connected
-                                        <span id="codegen-status" class="badge bg-secondary">Unknown</span>
-                                    </li>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        ngrok Connected
-                                        <span id="ngrok-status" class="badge bg-secondary">Unknown</span>
-                                    </li>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        Workflow Manager
-                                        <span id="workflow-status" class="badge bg-secondary">Unknown</span>
-                                    </li>
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        Active Repository
-                                        <span id="repo-status" class="badge bg-secondary">None</span>
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
+        <div class="tab-content" id="project">
+            <div class="section">
+                <h2>Project Context</h2>
+                <div class="form-group">
+                    <label for="project-name">Project Name:</label>
+                    <input type="text" id="project-name" placeholder="Enter project name">
                 </div>
+                <div class="form-group">
+                    <label for="project-description">Project Description:</label>
+                    <textarea id="project-description" rows="3" placeholder="Enter project description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="requirements-text">Requirements:</label>
+                    <textarea id="requirements-text" rows="10" placeholder="Enter project requirements"></textarea>
+                </div>
+                <button id="set-project-btn">Set Project Context</button>
+                <div id="project-status" class="status"></div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="deployment">
+            <div class="section">
+                <h2>Deployment Plan</h2>
+                <div class="form-group">
+                    <label for="deployment-plan">Deployment Plan:</label>
+                    <textarea id="deployment-plan" rows="10" placeholder="Enter deployment plan"></textarea>
+                </div>
+                <button id="parse-steps-btn">Parse Deployment Steps</button>
+                <div id="parse-status" class="status"></div>
             </div>
             
-            <!-- Chat Tab -->
-            <div class="tab-pane fade" id="chat" role="tabpanel" aria-labelledby="chat-tab">
-                <div class="row">
-                    <div class="col-md-12">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5 class="mb-0">Chat with TaskWeaver</h5>
-                            </div>
-                            <div class="card-body">
-                                <div id="chat-container"></div>
-                                <div class="input-group">
-                                    <input type="text" id="chat-input" class="form-control" placeholder="Type your message...">
-                                    <button id="send-btn" class="btn btn-primary">Send</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+            <div class="section">
+                <h2>Deployment Steps</h2>
+                <div id="steps-container"></div>
+                <div class="form-group">
+                    <label for="max-concurrent-steps">Max Concurrent Steps:</label>
+                    <input type="number" id="max-concurrent-steps" value="1" min="1" max="10">
                 </div>
+                <button id="execute-steps-btn" disabled>Execute All Steps</button>
+                <button id="cancel-steps-btn" disabled>Cancel Execution</button>
+                <div id="execution-status" class="status"></div>
             </div>
             
-            <!-- Requirements Tab -->
-            <div class="tab-pane fade" id="requirements" role="tabpanel" aria-labelledby="requirements-tab">
-                <div class="row">
-                    <div class="col-md-12">
-                        <div class="card">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">Requirements Document</h5>
-                                <div>
-                                    <button id="save-requirements-btn" class="btn btn-primary btn-sm">Save to Repository</button>
-                                </div>
-                            </div>
-                            <div class="card-body">
-                                <textarea id="requirements-container" class="form-control" rows="15" placeholder="# Requirements Document
-
-## Feature Request
-
-Describe the feature request here.
-
-## Implementation Plan
-
-1. Step 1
-2. Step 2
-3. Step 3"></textarea>
-                            </div>
-                        </div>
-                    </div>
+            <div class="section">
+                <h2>Single Step Execution</h2>
+                <div class="form-group">
+                    <label for="step-id">Step ID:</label>
+                    <input type="text" id="step-id" placeholder="Enter step ID">
                 </div>
+                <div class="form-group">
+                    <label for="step-title">Step Title:</label>
+                    <input type="text" id="step-title" placeholder="Enter step title">
+                </div>
+                <div class="form-group">
+                    <label for="step-description">Step Description:</label>
+                    <textarea id="step-description" rows="5" placeholder="Enter step description"></textarea>
+                </div>
+                <button id="execute-single-step-btn">Execute Single Step</button>
+                <div id="single-step-status" class="status"></div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="status">
+            <div class="section">
+                <h2>Integration Status</h2>
+                <button id="refresh-status-btn">Refresh Status</button>
+                <div id="integration-status" class="status"></div>
             </div>
             
-            <!-- Codegen Tab -->
-            <div class="tab-pane fade" id="codegen" role="tabpanel" aria-labelledby="codegen-tab">
-                <div class="row">
-                    <div class="col-md-12">
-                        <div class="card">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">Codegen Agent</h5>
-                                <div>
-                                    <button id="start-workflow-btn" class="btn btn-success btn-sm">Start Workflow</button>
-                                    <button id="stop-workflow-btn" class="btn btn-danger btn-sm">Stop Workflow</button>
-                                </div>
-                            </div>
-                            <div class="card-body">
-                                <div class="mb-3">
-                                    <label for="codegen-prompt" class="form-label">Prompt for Codegen</label>
-                                    <textarea id="codegen-prompt" class="form-control" rows="5" placeholder="Enter your instructions for Codegen..."></textarea>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="codegen-repo" class="form-label">Repository (optional)</label>
-                                    <select class="form-select" id="codegen-repo">
-                                        <option value="" selected>Use active repository</option>
-                                    </select>
-                                </div>
-                                <button id="send-to-codegen-btn" class="btn btn-primary">Send to Codegen</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div class="section">
+                <h2>Weaver Status</h2>
+                <button id="refresh-weaver-status-btn">Refresh Weaver Status</button>
+                <div id="weaver-status" class="status"></div>
             </div>
             
-            <!-- Tasks Tab -->
-            <div class="tab-pane fade" id="tasks" role="tabpanel" aria-labelledby="tasks-tab">
-                <div class="row">
-                    <div class="col-md-12">
-                        <div class="card">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5 class="mb-0">Active Tasks</h5>
-                                <button id="refresh-tasks-btn" class="btn btn-secondary btn-sm">Refresh</button>
-                            </div>
-                            <div class="card-body">
-                                <div id="tasks-container">
-                                    <p class="text-muted">No active tasks.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div class="section">
+                <h2>Step Results</h2>
+                <button id="refresh-results-btn">Refresh Results</button>
+                <div id="step-results" class="status"></div>
             </div>
         </div>
     </div>
     
-    <!-- Bootstrap and jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/static/script.js"></script>
+    <script>
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tab.getAttribute('data-tab')).classList.add('active');
+            });
+        });
+        
+        // Initialize Codegen integration
+        document.getElementById('initialize-btn').addEventListener('click', async () => {
+            const githubToken = document.getElementById('github-token').value;
+            const codegenToken = document.getElementById('codegen-token').value;
+            const ngrokToken = document.getElementById('ngrok-token').value;
+            const codegenOrgId = document.getElementById('codegen-org-id').value;
+            
+            if (!githubToken || !codegenToken || !ngrokToken || !codegenOrgId) {
+                document.getElementById('initialize-status').textContent = 'Please fill in all fields';
+                document.getElementById('initialize-status').className = 'status error';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/codegen/initialize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        github_token: githubToken,
+                        codegen_token: codegenToken,
+                        ngrok_token: ngrokToken,
+                        codegen_org_id: codegenOrgId
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('initialize-status').textContent = 'Initialization successful';
+                    document.getElementById('initialize-status').className = 'status success';
+                    
+                    // Enable repository selection
+                    document.getElementById('repository').disabled = false;
+                    document.getElementById('set-repository-btn').disabled = false;
+                    
+                    // Load repositories
+                    loadRepositories();
+                } else {
+                    document.getElementById('initialize-status').textContent = 'Initialization failed: ' + (data.error || 'Unknown error');
+                    document.getElementById('initialize-status').className = 'status error';
+                }
+            } catch (error) {
+                document.getElementById('initialize-status').textContent = 'Error: ' + error.message;
+                document.getElementById('initialize-status').className = 'status error';
+            }
+        });
+        
+        // Load repositories
+        async function loadRepositories() {
+            try {
+                const response = await fetch('/api/codegen/repositories');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const repositorySelect = document.getElementById('repository');
+                    repositorySelect.innerHTML = '<option value="">Select a repository</option>';
+                    
+                    data.repositories.forEach(repo => {
+                        const option = document.createElement('option');
+                        option.value = repo.name;
+                        option.textContent = repo.name;
+                        repositorySelect.appendChild(option);
+                    });
+                    
+                    // Set active repository if any
+                    if (data.active_repository) {
+                        repositorySelect.value = data.active_repository;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading repositories:', error);
+            }
+        }
+        
+        // Set repository
+        document.getElementById('set-repository-btn').addEventListener('click', async () => {
+            const repository = document.getElementById('repository').value;
+            
+            if (!repository) {
+                document.getElementById('repository-status').textContent = 'Please select a repository';
+                document.getElementById('repository-status').className = 'status error';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/codegen/repository', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        repo_name: repository
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('repository-status').textContent = 'Repository set successfully';
+                    document.getElementById('repository-status').className = 'status success';
+                } else {
+                    document.getElementById('repository-status').textContent = 'Failed to set repository: ' + (data.error || 'Unknown error');
+                    document.getElementById('repository-status').className = 'status error';
+                }
+            } catch (error) {
+                document.getElementById('repository-status').textContent = 'Error: ' + error.message;
+                document.getElementById('repository-status').className = 'status error';
+            }
+        });
+        
+        // Set project context
+        document.getElementById('set-project-btn').addEventListener('click', async () => {
+            const projectName = document.getElementById('project-name').value;
+            const projectDescription = document.getElementById('project-description').value;
+            const requirementsText = document.getElementById('requirements-text').value;
+            
+            if (!projectName || !projectDescription || !requirementsText) {
+                document.getElementById('project-status').textContent = 'Please fill in all fields';
+                document.getElementById('project-status').className = 'status error';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/weaver/project-context', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        project_name: projectName,
+                        project_description: projectDescription,
+                        requirements_text: requirementsText
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('project-status').textContent = 'Project context set successfully';
+                    document.getElementById('project-status').className = 'status success';
+                } else {
+                    document.getElementById('project-status').textContent = 'Failed to set project context: ' + (data.error || 'Unknown error');
+                    document.getElementById('project-status').className = 'status error';
+                }
+            } catch (error) {
+                document.getElementById('project-status').textContent = 'Error: ' + error.message;
+                document.getElementById('project-status').className = 'status error';
+            }
+        });
+        
+        // Parse deployment steps
+        document.getElementById('parse-steps-btn').addEventListener('click', async () => {
+            const deploymentPlan = document.getElementById('deployment-plan').value;
+            
+            if (!deploymentPlan) {
+                document.getElementById('parse-status').textContent = 'Please enter a deployment plan';
+                document.getElementById('parse-status').className = 'status error';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/weaver/deployment-steps', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        deployment_plan: deploymentPlan
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('parse-status').textContent = 'Deployment steps parsed successfully';
+                    document.getElementById('parse-status').className = 'status success';
+                    
+                    // Display steps
+                    displaySteps(data.steps);
+                    
+                    // Enable execute button
+                    document.getElementById('execute-steps-btn').disabled = false;
+                    document.getElementById('cancel-steps-btn').disabled = false;
+                } else {
+                    document.getElementById('parse-status').textContent = 'Failed to parse deployment steps: ' + (data.error || 'Unknown error');
+                    document.getElementById('parse-status').className = 'status error';
+                }
+            } catch (error) {
+                document.getElementById('parse-status').textContent = 'Error: ' + error.message;
+                document.getElementById('parse-status').className = 'status error';
+            }
+        });
+        
+        // Display steps
+        function displaySteps(steps) {
+            const stepsContainer = document.getElementById('steps-container');
+            stepsContainer.innerHTML = '';
+            
+            steps.forEach(step => {
+                const stepElement = document.createElement('div');
+                stepElement.className = 'step';
+                stepElement.innerHTML = `
+                    <div class="step-title">${step.title}</div>
+                    <div class="step-description">${step.description}</div>
+                    <div class="step-status ${step.status}" id="step-status-${step.id}">Status: ${step.status}</div>
+                `;
+                stepsContainer.appendChild(stepElement);
+            });
+        }
+        
+        // Execute all steps
+        document.getElementById('execute-steps-btn').addEventListener('click', async () => {
+            const maxConcurrentSteps = document.getElementById('max-concurrent-steps').value;
+            
+            try {
+                const response = await fetch('/api/weaver/execute-steps', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        max_concurrent_steps: parseInt(maxConcurrentSteps)
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('execution-status').textContent = 'Execution started successfully';
+                    document.getElementById('execution-status').className = 'status success';
+                    
+                    // Start polling for status updates
+                    startStatusPolling();
+                } else {
+                    document.getElementById('execution-status').textContent = 'Failed to start execution: ' + (data.error || 'Unknown error');
+                    document.getElementById('execution-status').className = 'status error';
+                }
+            } catch (error) {
+                document.getElementById('execution-status').textContent = 'Error: ' + error.message;
+                document.getElementById('execution-status').className = 'status error';
+            }
+        });
+        
+        // Cancel execution
+        document.getElementById('cancel-steps-btn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/weaver/cancel', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('execution-status').textContent = 'Execution cancelled successfully';
+                    document.getElementById('execution-status').className = 'status success';
+                } else {
+                    document.getElementById('execution-status').textContent = 'Failed to cancel execution: ' + (data.error || 'Unknown error');
+                    document.getElementById('execution-status').className = 'status error';
+                }
+            } catch (error) {
+                document.getElementById('execution-status').textContent = 'Error: ' + error.message;
+                document.getElementById('execution-status').className = 'status error';
+            }
+        });
+        
+        // Execute single step
+        document.getElementById('execute-single-step-btn').addEventListener('click', async () => {
+            const stepId = document.getElementById('step-id').value;
+            const stepTitle = document.getElementById('step-title').value;
+            const stepDescription = document.getElementById('step-description').value;
+            
+            if (!stepId || !stepTitle || !stepDescription) {
+                document.getElementById('single-step-status').textContent = 'Please fill in all fields';
+                document.getElementById('single-step-status').className = 'status error';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/weaver/execute-step', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        step_id: stepId,
+                        step_title: stepTitle,
+                        step_description: stepDescription
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('single-step-status').textContent = 'Step execution started successfully';
+                    document.getElementById('single-step-status').className = 'status success';
+                } else {
+                    document.getElementById('single-step-status').textContent = 'Failed to execute step: ' + (data.error || 'Unknown error');
+                    document.getElementById('single-step-status').className = 'status error';
+                }
+            } catch (error) {
+                document.getElementById('single-step-status').textContent = 'Error: ' + error.message;
+                document.getElementById('single-step-status').className = 'status error';
+            }
+        });
+        
+        // Refresh status
+        document.getElementById('refresh-status-btn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/codegen/status');
+                const data = await response.json();
+                
+                document.getElementById('integration-status').textContent = JSON.stringify(data, null, 2);
+                document.getElementById('integration-status').className = 'status';
+            } catch (error) {
+                document.getElementById('integration-status').textContent = 'Error: ' + error.message;
+                document.getElementById('integration-status').className = 'status error';
+            }
+        });
+        
+        // Refresh weaver status
+        document.getElementById('refresh-weaver-status-btn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/weaver/status');
+                const data = await response.json();
+                
+                document.getElementById('weaver-status').textContent = JSON.stringify(data, null, 2);
+                document.getElementById('weaver-status').className = 'status';
+            } catch (error) {
+                document.getElementById('weaver-status').textContent = 'Error: ' + error.message;
+                document.getElementById('weaver-status').className = 'status error';
+            }
+        });
+        
+        // Refresh results
+        document.getElementById('refresh-results-btn').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/weaver/steps/results');
+                const data = await response.json();
+                
+                document.getElementById('step-results').textContent = JSON.stringify(data, null, 2);
+                document.getElementById('step-results').className = 'status';
+            } catch (error) {
+                document.getElementById('step-results').textContent = 'Error: ' + error.message;
+                document.getElementById('step-results').className = 'status error';
+            }
+        });
+        
+        // Status polling
+        let pollingInterval;
+        
+        function startStatusPolling() {
+            // Clear any existing polling
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
+            
+            // Poll every 5 seconds
+            pollingInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/weaver/steps/results');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // Update step statuses
+                        for (const stepId in data.results) {
+                            const statusElement = document.getElementById(`step-status-${stepId}`);
+                            if (statusElement) {
+                                const result = data.results[stepId];
+                                statusElement.textContent = `Status: ${result.status}`;
+                                statusElement.className = `step-status ${result.status}`;
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error polling for status:', error);
+                }
+            }, 5000);
+        }
+    </script>
 </body>
 </html>
+

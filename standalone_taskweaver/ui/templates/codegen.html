@@ -1,819 +1,423 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TaskWeaver - Codegen Integration</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <title>Codegen Integration</title>
     <style>
-        .codegen-container {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
             padding: 20px;
-            background-color: #121212;
-            color: #e0e0e0;
         }
-        
-        .codegen-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .header {
+            background-color: #333;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .section {
+            background-color: white;
+            border-radius: 5px;
+            padding: 20px;
             margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
-        
-        .codegen-title {
-            font-size: 24px;
-            font-weight: bold;
-            color: #e0e0e0;
-        }
-        
-        .codegen-status {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .status-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-        }
-        
-        .status-connected {
-            background-color: #48bb78;
-        }
-        
-        .status-disconnected {
-            background-color: #f56565;
-        }
-        
-        .codegen-main {
-            display: flex;
-            flex: 1;
-            gap: 20px;
-        }
-        
-        .codegen-sidebar {
-            width: 300px;
-            background-color: #1e1e1e;
-            border-radius: 5px;
-            padding: 15px;
-            overflow-y: auto;
-            border: 1px solid #333;
-        }
-        
-        .codegen-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background-color: #1e1e1e;
-            border-radius: 5px;
-            padding: 15px;
-            overflow-y: auto;
-            border: 1px solid #333;
-        }
-        
-        .repo-list {
-            margin-top: 15px;
-        }
-        
-        .repo-item {
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 5px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            color: #e0e0e0;
-        }
-        
-        .repo-item:hover {
-            background-color: #2d3748;
-        }
-        
-        .repo-item.active {
-            background-color: #2d3748;
-            font-weight: bold;
-        }
-        
-        .repo-name {
-            font-weight: bold;
-        }
-        
-        .repo-description {
-            font-size: 12px;
-            color: #a0aec0;
-            margin-top: 5px;
-        }
-        
-        .task-list {
-            margin-top: 15px;
-        }
-        
-        .task-item {
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 5px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            color: #e0e0e0;
-        }
-        
-        .task-item:hover {
-            background-color: #2d3748;
-        }
-        
-        .task-item.active {
-            background-color: #2d3748;
-            font-weight: bold;
-        }
-        
-        .task-id {
-            font-size: 12px;
-            color: #a0aec0;
-        }
-        
-        .task-status {
-            font-size: 12px;
-            margin-top: 5px;
-        }
-        
-        .task-status.completed {
-            color: #48bb78;
-        }
-        
-        .task-status.failed {
-            color: #f56565;
-        }
-        
-        .task-status.running {
-            color: #4299e1;
-        }
-        
-        .codegen-form {
-            margin-top: 20px;
-        }
-        
         .form-group {
             margin-bottom: 15px;
         }
-        
-        .form-label {
+        label {
             display: block;
             margin-bottom: 5px;
             font-weight: bold;
-            color: #e0e0e0;
         }
-        
-        .form-input {
+        input[type="text"], textarea, select {
             width: 100%;
             padding: 10px;
-            border: 1px solid #4a5568;
-            border-radius: 5px;
-            background-color: #2d3748;
-            color: #e0e0e0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
         }
-        
-        .form-textarea {
-            width: 100%;
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .status {
             padding: 10px;
-            border: 1px solid #4a5568;
-            border-radius: 5px;
-            min-height: 150px;
-            resize: vertical;
-            background-color: #2d3748;
-            color: #e0e0e0;
+            margin-top: 10px;
+            border-radius: 4px;
         }
-        
-        .form-button {
+        .success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab {
             padding: 10px 20px;
-            background-color: #3182ce;
-            color: white;
-            border: none;
-            border-radius: 5px;
+            background-color: #ddd;
             cursor: pointer;
-            transition: background-color 0.2s;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
         }
-        
-        .form-button:hover {
-            background-color: #2c5282;
+        .tab.active {
+            background-color: white;
+            border-bottom: 2px solid #4CAF50;
         }
-        
-        .task-details {
-            margin-top: 20px;
+        .tab-content {
+            display: none;
         }
-        
-        .task-details-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
-        .task-details-title {
-            font-size: 18px;
-            font-weight: bold;
-            color: #e0e0e0;
-        }
-        
-        .task-details-status {
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 12px;
-            color: white;
-        }
-        
-        .task-details-status.completed {
-            background-color: #48bb78;
-        }
-        
-        .task-details-status.failed {
-            background-color: #f56565;
-        }
-        
-        .task-details-status.running {
-            background-color: #4299e1;
-        }
-        
-        .task-details-content {
-            background-color: #1e1e1e;
-            border-radius: 5px;
-            padding: 15px;
-            overflow-y: auto;
-            max-height: 500px;
-            border: 1px solid #333;
-            color: #e0e0e0;
-        }
-        
-        .task-details-result {
-            margin-top: 15px;
-            white-space: pre-wrap;
-            font-family: monospace;
-            color: #e0e0e0;
-            background-color: #2d3748;
-            padding: 10px;
-            border-radius: 5px;
-        }
-        
-        .task-details-error {
-            margin-top: 15px;
-            color: #f56565;
-        }
-        
-        .task-details-pr {
-            margin-top: 15px;
-        }
-        
-        .task-details-pr a {
-            color: #4299e1;
-            text-decoration: none;
-        }
-        
-        .task-details-pr a:hover {
-            text-decoration: underline;
-        }
-        
-        .code-editor {
-            margin-top: 20px;
-            border: 1px solid #333;
-            border-radius: 5px;
-            overflow: hidden;
-        }
-        
-        .code-editor-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            background-color: #252525;
-            border-bottom: 1px solid #333;
-        }
-        
-        .code-editor-title {
-            font-weight: bold;
-            color: #e0e0e0;
-        }
-        
-        .code-editor-actions {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .code-editor-content {
-            padding: 10px;
-            min-height: 300px;
-            font-family: monospace;
-            white-space: pre-wrap;
-            overflow-y: auto;
-            background-color: #1e1e1e;
-            color: #e0e0e0;
-        }
-        
-        .setup-form {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #1e1e1e;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-            border: 1px solid #333;
-            color: #e0e0e0;
-        }
-        
-        .setup-title {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 20px;
-            text-align: center;
-            color: #e0e0e0;
-        }
-        
-        .setup-description {
-            margin-bottom: 20px;
-            text-align: center;
-            color: #a0aec0;
-        }
-        
-        .setup-button {
+        .tab-content.active {
             display: block;
-            width: 100%;
-            padding: 15px;
-            background-color: #3182ce;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            font-size: 16px;
-            font-weight: bold;
-            margin-top: 20px;
         }
-        
-        .setup-button:hover {
-            background-color: #2c5282;
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
         }
-        
-        .loading {
-            color: #a0aec0;
+        .code-editor {
+            font-family: monospace;
+            min-height: 300px;
+            white-space: pre;
         }
     </style>
 </head>
 <body>
-    <div class="codegen-container">
-        <div class="codegen-header">
-            <div class="codegen-title">TaskWeaver + Codegen</div>
-            <div class="codegen-status">
-                <div class="status-indicator" id="statusIndicator"></div>
-                <span id="statusText">Checking connection...</span>
+    <div class="header">
+        <h1>Codegen Integration</h1>
+    </div>
+    
+    <div class="container">
+        <div class="tabs">
+            <div class="tab active" data-tab="code-generation">Code Generation</div>
+            <div class="tab" data-tab="code-analysis">Code Analysis</div>
+            <div class="tab" data-tab="code-refactoring">Code Refactoring</div>
+            <div class="tab" data-tab="test-generation">Test Generation</div>
+        </div>
+        
+        <div class="tab-content active" id="code-generation">
+            <div class="section">
+                <h2>Generate Code</h2>
+                <div class="form-group">
+                    <label for="code-prompt">Prompt:</label>
+                    <textarea id="code-prompt" rows="5" placeholder="Enter prompt for code generation"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="code-language">Language:</label>
+                    <select id="code-language">
+                        <option value="python">Python</option>
+                        <option value="javascript">JavaScript</option>
+                        <option value="typescript">TypeScript</option>
+                        <option value="java">Java</option>
+                        <option value="csharp">C#</option>
+                        <option value="cpp">C++</option>
+                        <option value="go">Go</option>
+                        <option value="rust">Rust</option>
+                    </select>
+                </div>
+                <button id="generate-code-btn">Generate Code</button>
+                <div id="generate-code-status" class="status"></div>
+                <div class="form-group">
+                    <label for="generated-code">Generated Code:</label>
+                    <pre id="generated-code" class="code-editor"></pre>
+                </div>
             </div>
         </div>
         
-        <div class="codegen-main" id="codegenMain">
-            <!-- Content will be loaded dynamically -->
+        <div class="tab-content" id="code-analysis">
+            <div class="section">
+                <h2>Analyze Code</h2>
+                <div class="form-group">
+                    <label for="analyze-code">Code to Analyze:</label>
+                    <textarea id="analyze-code" rows="10" placeholder="Enter code to analyze"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="analyze-language">Language:</label>
+                    <select id="analyze-language">
+                        <option value="python">Python</option>
+                        <option value="javascript">JavaScript</option>
+                        <option value="typescript">TypeScript</option>
+                        <option value="java">Java</option>
+                        <option value="csharp">C#</option>
+                        <option value="cpp">C++</option>
+                        <option value="go">Go</option>
+                        <option value="rust">Rust</option>
+                    </select>
+                </div>
+                <button id="analyze-code-btn">Analyze Code</button>
+                <div id="analyze-code-status" class="status"></div>
+                <div class="form-group">
+                    <label for="analysis-result">Analysis Result:</label>
+                    <pre id="analysis-result"></pre>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="code-refactoring">
+            <div class="section">
+                <h2>Refactor Code</h2>
+                <div class="form-group">
+                    <label for="refactor-code">Code to Refactor:</label>
+                    <textarea id="refactor-code" rows="10" placeholder="Enter code to refactor"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="refactor-language">Language:</label>
+                    <select id="refactor-language">
+                        <option value="python">Python</option>
+                        <option value="javascript">JavaScript</option>
+                        <option value="typescript">TypeScript</option>
+                        <option value="java">Java</option>
+                        <option value="csharp">C#</option>
+                        <option value="cpp">C++</option>
+                        <option value="go">Go</option>
+                        <option value="rust">Rust</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="refactor-instructions">Refactoring Instructions:</label>
+                    <textarea id="refactor-instructions" rows="5" placeholder="Enter refactoring instructions"></textarea>
+                </div>
+                <button id="refactor-code-btn">Refactor Code</button>
+                <div id="refactor-code-status" class="status"></div>
+                <div class="form-group">
+                    <label for="refactored-code">Refactored Code:</label>
+                    <pre id="refactored-code" class="code-editor"></pre>
+                </div>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="test-generation">
+            <div class="section">
+                <h2>Generate Tests</h2>
+                <div class="form-group">
+                    <label for="test-code">Code to Generate Tests For:</label>
+                    <textarea id="test-code" rows="10" placeholder="Enter code to generate tests for"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="test-language">Language:</label>
+                    <select id="test-language">
+                        <option value="python">Python</option>
+                        <option value="javascript">JavaScript</option>
+                        <option value="typescript">TypeScript</option>
+                        <option value="java">Java</option>
+                        <option value="csharp">C#</option>
+                        <option value="cpp">C++</option>
+                        <option value="go">Go</option>
+                        <option value="rust">Rust</option>
+                    </select>
+                </div>
+                <button id="generate-tests-btn">Generate Tests</button>
+                <div id="generate-tests-status" class="status"></div>
+                <div class="form-group">
+                    <label for="generated-tests">Generated Tests:</label>
+                    <pre id="generated-tests" class="code-editor"></pre>
+                </div>
+            </div>
         </div>
     </div>
     
     <script>
-        // Check if Codegen integration is initialized
-        async function checkCodegenStatus() {
-            try {
-                const response = await fetch('/api/codegen/status');
-                const data = await response.json();
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 
-                const statusIndicator = document.getElementById('statusIndicator');
-                const statusText = document.getElementById('statusText');
-                
-                if (data.initialized) {
-                    statusIndicator.classList.add('status-connected');
-                    statusIndicator.classList.remove('status-disconnected');
-                    statusText.textContent = 'Connected';
-                    
-                    // Load main content
-                    loadMainContent();
-                } else {
-                    statusIndicator.classList.add('status-disconnected');
-                    statusIndicator.classList.remove('status-connected');
-                    statusText.textContent = 'Not connected';
-                    
-                    // Load setup form
-                    loadSetupForm();
-                }
-            } catch (error) {
-                console.error('Error checking Codegen status:', error);
-                
-                const statusIndicator = document.getElementById('statusIndicator');
-                const statusText = document.getElementById('statusText');
-                
-                statusIndicator.classList.add('status-disconnected');
-                statusIndicator.classList.remove('status-connected');
-                statusText.textContent = 'Error connecting';
-                
-                // Load setup form
-                loadSetupForm();
-            }
-        }
-        
-        // Load setup form
-        function loadSetupForm() {
-            const codegenMain = document.getElementById('codegenMain');
-            
-            codegenMain.innerHTML = `
-                <div class="setup-form">
-                    <div class="setup-title">Connect to Codegen</div>
-                    <div class="setup-description">
-                        To use the Codegen integration, you need to provide API credentials.
-                    </div>
-                    
-                    <form id="setupForm">
-                        <div class="form-group">
-                            <label class="form-label" for="githubToken">GitHub Token</label>
-                            <input class="form-input" type="password" id="githubToken" name="github_token" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label" for="codegenToken">Codegen Token</label>
-                            <input class="form-input" type="password" id="codegenToken" name="codegen_token" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label" for="ngrokToken">ngrok Token</label>
-                            <input class="form-input" type="password" id="ngrokToken" name="ngrok_token" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label" for="codegenOrgId">Codegen Organization ID</label>
-                            <input class="form-input" type="text" id="codegenOrgId" name="codegen_org_id" required>
-                        </div>
-                        
-                        <button class="setup-button" type="submit">Connect</button>
-                    </form>
-                </div>
-            `;
-            
-            // Add event listener to setup form
-            document.getElementById('setupForm').addEventListener('submit', async (event) => {
-                event.preventDefault();
-                
-                const formData = new FormData(event.target);
-                const data = Object.fromEntries(formData.entries());
-                
-                try {
-                    const response = await fetch('/api/codegen/initialize', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(data)
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        // Reload page
-                        window.location.reload();
-                    } else {
-                        alert('Error initializing Codegen: ' + result.error);
-                    }
-                } catch (error) {
-                    console.error('Error initializing Codegen:', error);
-                    alert('Error initializing Codegen');
-                }
+                tab.classList.add('active');
+                document.getElementById(tab.getAttribute('data-tab')).classList.add('active');
             });
-        }
+        });
         
-        // Load main content
-        function loadMainContent() {
-            const codegenMain = document.getElementById('codegenMain');
+        // Generate code
+        document.getElementById('generate-code-btn').addEventListener('click', async () => {
+            const prompt = document.getElementById('code-prompt').value;
+            const language = document.getElementById('code-language').value;
             
-            codegenMain.innerHTML = `
-                <div class="codegen-sidebar">
-                    <div class="sidebar-section">
-                        <h3>Repositories</h3>
-                        <div class="repo-list" id="repoList">
-                            <div class="loading">Loading repositories...</div>
-                        </div>
-                    </div>
-                    
-                    <div class="sidebar-section">
-                        <h3>Tasks</h3>
-                        <div class="task-list" id="taskList">
-                            <div class="loading">No tasks yet</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="codegen-content">
-                    <div class="codegen-form">
-                        <h3>Create a Codegen Task</h3>
-                        
-                        <form id="taskForm">
-                            <div class="form-group">
-                                <label class="form-label" for="taskPrompt">Task Description</label>
-                                <textarea class="form-textarea" id="taskPrompt" name="prompt" required></textarea>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="form-label" for="repoName">Repository</label>
-                                <select class="form-input" id="repoName" name="repo_name">
-                                    <option value="">Select a repository</option>
-                                </select>
-                            </div>
-                            
-                            <button class="form-button" type="submit">Create Task</button>
-                        </form>
-                    </div>
-                    
-                    <div class="task-details" id="taskDetails" style="display: none;">
-                        <!-- Task details will be loaded dynamically -->
-                    </div>
-                </div>
-            `;
-            
-            // Load repositories
-            loadRepositories();
-            
-            // Load tasks
-            loadTasks();
-            
-            // Add event listener to task form
-            document.getElementById('taskForm').addEventListener('submit', async (event) => {
-                event.preventDefault();
-                
-                const formData = new FormData(event.target);
-                const data = Object.fromEntries(formData.entries());
-                
-                try {
-                    const response = await fetch('/api/codegen/tasks', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(data)
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        // Clear form
-                        event.target.reset();
-                        
-                        // Reload tasks
-                        loadTasks();
-                        
-                        // Show task details
-                        loadTaskDetails(result.task_id);
-                    } else {
-                        alert('Error creating task: ' + result.error);
-                    }
-                } catch (error) {
-                    console.error('Error creating task:', error);
-                    alert('Error creating task');
-                }
-            });
-        }
-        
-        // Load repositories
-        async function loadRepositories() {
-            try {
-                const response = await fetch('/api/codegen/repositories');
-                const data = await response.json();
-                
-                const repoList = document.getElementById('repoList');
-                const repoSelect = document.getElementById('repoName');
-                
-                if (data.repositories && data.repositories.length > 0) {
-                    repoList.innerHTML = '';
-                    
-                    // Clear select options
-                    repoSelect.innerHTML = '<option value="">Select a repository</option>';
-                    
-                    data.repositories.forEach(repo => {
-                        // Add to repo list
-                        const repoItem = document.createElement('div');
-                        repoItem.classList.add('repo-item');
-                        repoItem.dataset.repoName = repo.name;
-                        repoItem.innerHTML = `
-                            <div class="repo-name">${repo.name}</div>
-                            <div class="repo-description">${repo.description || 'No description'}</div>
-                        `;
-                        
-                        repoItem.addEventListener('click', () => {
-                            // Set active repo
-                            document.querySelectorAll('.repo-item').forEach(item => {
-                                item.classList.remove('active');
-                            });
-                            repoItem.classList.add('active');
-                            
-                            // Set repo in form
-                            repoSelect.value = repo.name;
-                            
-                            // Set repository
-                            setRepository(repo.name);
-                        });
-                        
-                        repoList.appendChild(repoItem);
-                        
-                        // Add to repo select
-                        const option = document.createElement('option');
-                        option.value = repo.name;
-                        option.textContent = repo.name;
-                        repoSelect.appendChild(option);
-                    });
-                    
-                    // Set active repository if available
-                    if (data.active_repository) {
-                        const activeRepo = document.querySelector(`.repo-item[data-repo-name="${data.active_repository}"]`);
-                        if (activeRepo) {
-                            activeRepo.classList.add('active');
-                        }
-                        
-                        repoSelect.value = data.active_repository;
-                    }
-                } else {
-                    repoList.innerHTML = '<div class="loading">No repositories found</div>';
-                }
-            } catch (error) {
-                console.error('Error loading repositories:', error);
-                
-                const repoList = document.getElementById('repoList');
-                repoList.innerHTML = '<div class="loading">Error loading repositories</div>';
+            if (!prompt) {
+                document.getElementById('generate-code-status').textContent = 'Please enter a prompt';
+                document.getElementById('generate-code-status').className = 'status error';
+                return;
             }
-        }
-        
-        // Set repository
-        async function setRepository(repoName) {
+            
             try {
-                const response = await fetch('/api/codegen/repository', {
+                document.getElementById('generate-code-status').textContent = 'Generating code...';
+                document.getElementById('generate-code-status').className = 'status';
+                
+                const response = await fetch('/api/codegen/generate-code', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ repo_name: repoName })
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        language: language
+                    })
                 });
                 
-                const result = await response.json();
-                
-                if (!result.success) {
-                    alert('Error setting repository: ' + result.error);
-                }
-            } catch (error) {
-                console.error('Error setting repository:', error);
-                alert('Error setting repository');
-            }
-        }
-        
-        // Load tasks
-        async function loadTasks() {
-            try {
-                const response = await fetch('/api/codegen/tasks');
                 const data = await response.json();
                 
-                const taskList = document.getElementById('taskList');
-                
-                if (data.tasks && data.tasks.length > 0) {
-                    taskList.innerHTML = '';
-                    
-                    data.tasks.forEach(task => {
-                        const taskItem = document.createElement('div');
-                        taskItem.classList.add('task-item');
-                        taskItem.dataset.taskId = task.id;
-                        
-                        let statusClass = '';
-                        if (task.status === 'completed') {
-                            statusClass = 'completed';
-                        } else if (task.status === 'failed') {
-                            statusClass = 'failed';
-                        } else {
-                            statusClass = 'running';
-                        }
-                        
-                        taskItem.innerHTML = `
-                            <div class="task-prompt">${task.prompt.substring(0, 50)}${task.prompt.length > 50 ? '...' : ''}</div>
-                            <div class="task-id">ID: ${task.id}</div>
-                            <div class="task-status ${statusClass}">${task.status}</div>
-                        `;
-                        
-                        taskItem.addEventListener('click', () => {
-                            // Set active task
-                            document.querySelectorAll('.task-item').forEach(item => {
-                                item.classList.remove('active');
-                            });
-                            taskItem.classList.add('active');
-                            
-                            // Load task details
-                            loadTaskDetails(task.id);
-                        });
-                        
-                        taskList.appendChild(taskItem);
-                    });
+                if (data.success) {
+                    document.getElementById('generate-code-status').textContent = 'Code generated successfully';
+                    document.getElementById('generate-code-status').className = 'status success';
+                    document.getElementById('generated-code').textContent = data.code || '';
                 } else {
-                    taskList.innerHTML = '<div class="loading">No tasks found</div>';
+                    document.getElementById('generate-code-status').textContent = 'Failed to generate code: ' + (data.error || 'Unknown error');
+                    document.getElementById('generate-code-status').className = 'status error';
                 }
             } catch (error) {
-                console.error('Error loading tasks:', error);
-                
-                const taskList = document.getElementById('taskList');
-                taskList.innerHTML = '<div class="loading">Error loading tasks</div>';
+                document.getElementById('generate-code-status').textContent = 'Error: ' + error.message;
+                document.getElementById('generate-code-status').className = 'status error';
             }
-        }
+        });
         
-        // Load task details
-        async function loadTaskDetails(taskId) {
+        // Analyze code
+        document.getElementById('analyze-code-btn').addEventListener('click', async () => {
+            const code = document.getElementById('analyze-code').value;
+            const language = document.getElementById('analyze-language').value;
+            
+            if (!code) {
+                document.getElementById('analyze-code-status').textContent = 'Please enter code to analyze';
+                document.getElementById('analyze-code-status').className = 'status error';
+                return;
+            }
+            
             try {
-                const response = await fetch(`/api/codegen/tasks/${taskId}`);
+                document.getElementById('analyze-code-status').textContent = 'Analyzing code...';
+                document.getElementById('analyze-code-status').className = 'status';
+                
+                const response = await fetch('/api/codegen/analyze-code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        code: code,
+                        language: language
+                    })
+                });
+                
                 const data = await response.json();
                 
-                const taskDetails = document.getElementById('taskDetails');
-                
-                if (data.task) {
-                    let statusClass = '';
-                    if (data.task.status === 'completed') {
-                        statusClass = 'completed';
-                    } else if (data.task.status === 'failed') {
-                        statusClass = 'failed';
-                    } else {
-                        statusClass = 'running';
-                    }
-                    
-                    let resultHtml = '';
-                    if (data.task.result) {
-                        if (typeof data.task.result === 'object') {
-                            resultHtml = `<pre class="task-details-result">${JSON.stringify(data.task.result, null, 2)}</pre>`;
-                        } else {
-                            resultHtml = `<pre class="task-details-result">${data.task.result}</pre>`;
-                        }
-                    }
-                    
-                    let errorHtml = '';
-                    if (data.task.error) {
-                        errorHtml = `<div class="task-details-error">${data.task.error}</div>`;
-                    }
-                    
-                    let prHtml = '';
-                    if (data.task.pr_url) {
-                        prHtml = `<div class="task-details-pr">
-                            <a href="${data.task.pr_url}" target="_blank">View Pull Request</a>
-                        </div>`;
-                    }
-                    
-                    taskDetails.innerHTML = `
-                        <div class="task-details-header">
-                            <div class="task-details-title">Task Details</div>
-                            <div class="task-details-status ${statusClass}">${data.task.status}</div>
-                        </div>
-                        
-                        <div class="task-details-content">
-                            <div class="task-details-prompt">
-                                <strong>Prompt:</strong>
-                                <p>${data.task.prompt}</p>
-                            </div>
-                            
-                            <div class="task-details-info">
-                                <strong>ID:</strong> ${data.task.id}<br>
-                                <strong>Created:</strong> ${new Date(data.task.created_at).toLocaleString()}<br>
-                                <strong>Updated:</strong> ${new Date(data.task.updated_at).toLocaleString()}
-                            </div>
-                            
-                            ${errorHtml}
-                            ${resultHtml}
-                            ${prHtml}
-                        </div>
-                    `;
-                    
-                    taskDetails.style.display = 'block';
+                if (data.success) {
+                    document.getElementById('analyze-code-status').textContent = 'Code analyzed successfully';
+                    document.getElementById('analyze-code-status').className = 'status success';
+                    document.getElementById('analysis-result').textContent = data.analysis || '';
                 } else {
-                    taskDetails.innerHTML = `
-                        <div class="task-details-header">
-                            <div class="task-details-title">Task Details</div>
-                        </div>
-                        
-                        <div class="task-details-content">
-                            <div class="loading">Task not found</div>
-                        </div>
-                    `;
-                    
-                    taskDetails.style.display = 'block';
+                    document.getElementById('analyze-code-status').textContent = 'Failed to analyze code: ' + (data.error || 'Unknown error');
+                    document.getElementById('analyze-code-status').className = 'status error';
                 }
             } catch (error) {
-                console.error('Error loading task details:', error);
-                
-                const taskDetails = document.getElementById('taskDetails');
-                taskDetails.innerHTML = `
-                    <div class="task-details-header">
-                        <div class="task-details-title">Task Details</div>
-                    </div>
-                    
-                    <div class="task-details-content">
-                        <div class="loading">Error loading task details</div>
-                    </div>
-                `;
-                
-                taskDetails.style.display = 'block';
+                document.getElementById('analyze-code-status').textContent = 'Error: ' + error.message;
+                document.getElementById('analyze-code-status').className = 'status error';
             }
-        }
+        });
         
-        // Initialize
-        checkCodegenStatus();
+        // Refactor code
+        document.getElementById('refactor-code-btn').addEventListener('click', async () => {
+            const code = document.getElementById('refactor-code').value;
+            const language = document.getElementById('refactor-language').value;
+            const instructions = document.getElementById('refactor-instructions').value;
+            
+            if (!code || !instructions) {
+                document.getElementById('refactor-code-status').textContent = 'Please enter code and instructions';
+                document.getElementById('refactor-code-status').className = 'status error';
+                return;
+            }
+            
+            try {
+                document.getElementById('refactor-code-status').textContent = 'Refactoring code...';
+                document.getElementById('refactor-code-status').className = 'status';
+                
+                const response = await fetch('/api/codegen/refactor-code', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        code: code,
+                        language: language,
+                        instructions: instructions
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('refactor-code-status').textContent = 'Code refactored successfully';
+                    document.getElementById('refactor-code-status').className = 'status success';
+                    document.getElementById('refactored-code').textContent = data.refactored_code || '';
+                } else {
+                    document.getElementById('refactor-code-status').textContent = 'Failed to refactor code: ' + (data.error || 'Unknown error');
+                    document.getElementById('refactor-code-status').className = 'status error';
+                }
+            } catch (error) {
+                document.getElementById('refactor-code-status').textContent = 'Error: ' + error.message;
+                document.getElementById('refactor-code-status').className = 'status error';
+            }
+        });
+        
+        // Generate tests
+        document.getElementById('generate-tests-btn').addEventListener('click', async () => {
+            const code = document.getElementById('test-code').value;
+            const language = document.getElementById('test-language').value;
+            
+            if (!code) {
+                document.getElementById('generate-tests-status').textContent = 'Please enter code to generate tests for';
+                document.getElementById('generate-tests-status').className = 'status error';
+                return;
+            }
+            
+            try {
+                document.getElementById('generate-tests-status').textContent = 'Generating tests...';
+                document.getElementById('generate-tests-status').className = 'status';
+                
+                const response = await fetch('/api/codegen/generate-tests', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        code: code,
+                        language: language
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('generate-tests-status').textContent = 'Tests generated successfully';
+                    document.getElementById('generate-tests-status').className = 'status success';
+                    document.getElementById('generated-tests').textContent = data.tests || '';
+                } else {
+                    document.getElementById('generate-tests-status').textContent = 'Failed to generate tests: ' + (data.error || 'Unknown error');
+                    document.getElementById('generate-tests-status').className = 'status error';
+                }
+            } catch (error) {
+                document.getElementById('generate-tests-status').textContent = 'Error: ' + error.message;
+                document.getElementById('generate-tests-status').className = 'status error';
+            }
+        });
     </script>
 </body>
 </html>
+

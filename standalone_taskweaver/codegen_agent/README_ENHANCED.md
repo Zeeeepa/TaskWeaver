@@ -1,110 +1,158 @@
-# Enhanced Codegen Agent for TaskWeaver
+# Enhanced Codegen Agent with Weaver Integration
 
-This directory contains an enhanced implementation of the Codegen agent for TaskWeaver, which supports multithreaded requests to the Codegen API while referencing project requirements and context.
+This directory contains an enhanced version of the Codegen agent implementation for TaskWeaver with integration for the weaver component.
 
-## Features
+## Overview
 
-- **Multithreaded Task Execution**: Execute multiple tasks concurrently using both thread pool and async approaches
-- **Context Sharing**: Share context between tasks to ensure consistency
-- **Enhanced Prompts**: Include project, requirements, and context information in prompts
-- **Task Status Monitoring**: Monitor the status of tasks in real-time
-- **Error Handling**: Handle errors with fallback strategies
-- **Web UI**: User-friendly web interface for interacting with the system
+The enhanced Codegen agent provides a comprehensive implementation of the Codegen agent that supports integration with TaskWeaver's weaver component for executing deployment steps. It allows the weaver to call the Codegen agent for executing deployment steps, making it ideal for automating deployment processes.
 
 ## Components
 
-### Codegen Agent
+- `weaver_integration.py`: Integration between TaskWeaver's weaver component and the Codegen agent
+- `codegen_agent.py`: Main Codegen agent implementation
+- `concurrent_execution.py`: Concurrent execution engine for executing tasks in parallel
+- `concurrent_context_manager.py`: Context manager for managing context in concurrent execution
+- `requirements_manager.py`: Manager for parsing requirements and creating atomic tasks
+- `bidirectional_context.py`: Bidirectional context manager for sharing context between TaskWeaver and Codegen
+- `planner_integration.py`: Integration between TaskWeaver's planner and Codegen
+- `integration.py`: Integration between Codegen and TaskWeaver
+- `interface_generator.py`: Generator for interfaces and mock implementations
+- `query_generation.py`: Framework for generating optimized queries
+- `advanced_api.py`: Advanced API for Codegen
 
-The `CodegenAgent` class is the main implementation of the Codegen agent. It provides the following functionality:
+## Weaver Integration
 
-- Initialize the Codegen agent with API credentials
-- Set project context (name, description, requirements)
-- Execute tasks based on requirements
-- Monitor task status and results
-- Handle errors and provide fallback strategies
+The `CodegenWeaverIntegration` class provides a bridge between TaskWeaver's weaver component and the Codegen agent. It allows the weaver to call the Codegen agent for executing deployment steps.
 
-### Enhanced UI
+### Key Features
 
-The enhanced UI provides a user-friendly interface for interacting with the Codegen agent. It includes the following features:
+- **Project Context Management**: Set the project context for the Codegen agent
+- **Deployment Step Parsing**: Parse deployment steps from a deployment plan
+- **Concurrent Execution**: Execute deployment steps concurrently
+- **Status Monitoring**: Monitor the status of deployment steps
+- **Result Retrieval**: Retrieve the results of deployment steps
+- **Cancellation**: Cancel running deployment steps
 
-- Chat interface for creating requirements and plans
-- Requirements visualization
-- Task status monitoring
-- Real-time updates via WebSockets
-- Project context management
+### Usage
 
-## Usage
+```python
+from standalone_taskweaver.codegen_agent.weaver_integration import CodegenWeaverIntegration
 
-### Running the Enhanced UI
+# Create a CodegenWeaverIntegration instance
+integration = CodegenWeaverIntegration(app, config, logger)
 
-To run the enhanced UI, use the following command:
+# Initialize the integration with a Codegen token
+integration.initialize("your-codegen-token")
 
-```bash
-python -m standalone_taskweaver.ui.run_enhanced
+# Set the project context
+integration.set_project_context(
+    project_name="My Project",
+    project_description="A sample project",
+    requirements_text="This project requires..."
+)
+
+# Parse deployment steps
+steps = integration.parse_deployment_steps("""
+Step 1: Initialize the project
+Create a new directory and initialize a Git repository.
+
+Step 2: Install dependencies
+Install the required dependencies using npm.
+""")
+
+# Execute deployment steps
+results = integration.execute_deployment_steps(max_concurrent_steps=2)
+
+# Get the status of a deployment step
+status = integration.get_step_status("step-1")
+
+# Get the result of a deployment step
+result = integration.get_step_result("step-1")
+
+# Get all deployment step results
+all_results = integration.get_all_step_results()
+
+# Get the status of the integration
+status = integration.get_status()
+
+# Cancel all running deployment steps
+integration.cancel_all_steps()
 ```
 
-Then open your browser to http://localhost:8000
+## Integration with TaskWeaver UI
 
-### API Endpoints
+The Codegen agent with weaver integration is designed to work seamlessly with the enhanced TaskWeaver UI. The UI provides a web interface for interacting with the Codegen agent, allowing users to:
 
-The enhanced UI provides the following API endpoints:
+1. Initialize the Codegen integration with API credentials
+2. Set the project context for the Codegen agent
+3. Parse deployment steps from a deployment plan
+4. Execute deployment steps concurrently
+5. Monitor the status of deployment steps
+6. Execute individual deployment steps
 
-- `/api/credentials`: Set and get API credentials
-- `/api/chat/message`: Add a message to the chat
-- `/api/chat/history`: Get chat history
-- `/api/project/context`: Set project context
-- `/api/requirements`: Get requirements
-- `/api/tasks/execute`: Execute tasks
-- `/api/tasks/status`: Get task execution status
-- `/api/tasks/cancel`: Cancel task execution
-- `/ws`: WebSocket endpoint for real-time updates
+## Deployment Step Parsing
 
-## Workflow
+The `parse_deployment_steps` method parses a deployment plan into atomic tasks that can be executed by the Codegen agent. The deployment plan should be a text document with steps in the following format:
 
-1. User chats with TaskWeaver to create requirements and plan
-2. When user is satisfied with the plan, they press Initialize
-3. TaskWeaver creates multiple requests to Codegen API
-4. Tasks are executed concurrently while respecting dependencies
-5. Each task references the project, requirements, and context
+```
+Step 1: Initialize the project
+Create a new directory and initialize a Git repository.
 
-## Implementation Details
+Step 2: Install dependencies
+Install the required dependencies using npm.
 
-### Multithreaded Execution
+Step 3: Configure the application
+Create a configuration file with the required settings.
 
-The system supports two approaches for multithreaded execution:
+Step 4: Build the application
+Build the application using the build script.
 
-1. **Thread Pool**: Using Python's `concurrent.futures.ThreadPoolExecutor` for parallel execution
-2. **Async/Await**: Using Python's `asyncio` for asynchronous execution
+Step 5: Deploy the application
+Deploy the application to the production server.
+```
 
-### Context Sharing
+Each step is parsed into an `AtomicTask` object with the following properties:
 
-The `ConcurrentContextManager` class manages context sharing between tasks. It ensures that:
+- `id`: A unique identifier for the step
+- `title`: The title of the step
+- `description`: The description of the step
+- `priority`: The priority of the step
+- `dependencies`: The dependencies of the step
+- `phase`: The phase of the step
+- `status`: The status of the step
+- `tags`: The tags of the step
+- `estimated_time`: The estimated time to complete the step
+- `assignee`: The assignee of the step
+- `interface_definition`: Whether the step is an interface definition
 
-- Each task has access to the relevant context
-- Context is updated as tasks are completed
-- Dependencies between tasks are respected
+## Concurrent Execution
 
-### Error Handling
+The Codegen agent supports concurrent execution of deployment steps, allowing for parallel execution of steps that do not have dependencies on each other. This is achieved through the `ConcurrentExecutionEngine` class, which manages the execution of steps in parallel using a thread pool.
 
-The system includes robust error handling with the following features:
+The concurrent execution engine supports:
 
-- Retry mechanism for failed tasks
-- Fallback strategies for different types of errors
-- Detailed error reporting
+- Executing steps in parallel with a configurable maximum number of concurrent steps
+- Monitoring the status of steps
+- Cancelling running steps
+- Handling step dependencies
+- Prioritizing steps based on dependencies
 
-## Dependencies
+## Context Management
 
-- Python 3.8+
-- FastAPI
-- Uvicorn
-- Codegen SDK
-- Bootstrap 5 (for UI)
-- D3.js (for dependency graph visualization)
+The Codegen agent uses a context manager to manage the context for deployment steps. The context manager provides:
 
-## Future Improvements
+- Project context management
+- Step-specific context management
+- Bidirectional context sharing between TaskWeaver and Codegen
+- Context compression for efficient storage
 
-- Add support for more complex dependency graphs
-- Implement more advanced error handling strategies
-- Enhance the UI with more visualizations
-- Add support for more Codegen API features
+## Requirements Management
+
+The Codegen agent uses a requirements manager to parse requirements and create atomic tasks. The requirements manager provides:
+
+- Parsing requirements from text
+- Creating atomic tasks from requirements
+- Identifying dependencies between tasks
+- Prioritizing tasks based on dependencies
+- Creating a dependency graph for tasks
 

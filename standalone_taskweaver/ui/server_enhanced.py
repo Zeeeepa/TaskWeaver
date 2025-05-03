@@ -1,15 +1,13 @@
-#!/usr/bin/env python3
 """
-Enhanced web server for TaskWeaver UI with multithreaded execution support
+Enhanced web server for TaskWeaver UI with Codegen agent integration
 """
 
 import os
 import json
 import logging
-import asyncio
 from typing import Dict, List, Optional, Any, Union
 
-from fastapi import FastAPI, HTTPException, Depends, Request, Form, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Depends, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -18,10 +16,11 @@ import uvicorn
 from injector import inject
 
 from standalone_taskweaver.app.app import TaskWeaverApp
-from standalone_taskweaver.app.session_manager import SessionManager
 from standalone_taskweaver.config.config_mgt import AppConfigSource
 from standalone_taskweaver.logging import TelemetryLogger
-from standalone_taskweaver.module.tracing import Tracing
+from standalone_taskweaver.codegen_agent.integration import CodegenIntegration
+from standalone_taskweaver.codegen_agent.bidirectional_context import BidirectionalContext
+from standalone_taskweaver.codegen_agent.advanced_api import CodegenAdvancedAPI
 from standalone_taskweaver.ui.taskweaver_ui_enhanced import TaskWeaverUIEnhanced
 
 # Set up logging
@@ -48,275 +47,419 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 api_credentials = {
     "github_token": "",
     "codegen_token": "",
-    "llm_provider": "openai",
-    "llm_api_key": "",
     "ngrok_token": "",
+    "codegen_org_id": ""
 }
 
-# Create AppConfigSource
-config = AppConfigSource()
+# Store GitHub repositories
+github_repos = []
 
-# Create dependencies for TaskWeaver app
-# Get log directory from config or use a default
-log_dir = os.path.join(os.path.dirname(current_dir), "logs")
-os.makedirs(log_dir, exist_ok=True)
-telemetry_logger = TelemetryLogger(log_dir=log_dir)
-# Initialize tracing first since it's required by SessionManager
-# The Tracing class constructor takes no parameters as per its implementation in module/tracing.py
-# This is a dependency for SessionManager which requires config, logger, and tracing instances
-tracing = Tracing()
-# Now initialize SessionManager with all required parameters
-# SessionManager requires three positional arguments: config, logger, and tracing
-session_manager = SessionManager(config, telemetry_logger, tracing)
+# Store active tasks
+active_tasks = {}
 
-# Create TaskWeaver app with proper dependencies
-taskweaver_app = TaskWeaverApp(
-    config=config,
-    session_manager=session_manager,
-    logger=telemetry_logger,
-    tracing=tracing
-)
+# Create TaskWeaverUIEnhanced instance
+ui = None
 
-# Create TaskWeaver UI
-ui = TaskWeaverUIEnhanced(taskweaver_app, config, telemetry_logger)
+# API Models
+class InitializeRequest(BaseModel):
+    github_token: str
+    codegen_token: str
+    ngrok_token: str
+    codegen_org_id: str
 
-# WebSocket connections
-active_connections: List[WebSocket] = []
+class SetRepositoryRequest(BaseModel):
+    repo_name: str
 
-# Request models
-class MessageRequest(BaseModel):
-    content: str
+class CreateTaskRequest(BaseModel):
+    prompt: str
+    repo_name: Optional[str] = None
+
+class GenerateCodeRequest(BaseModel):
+    prompt: str
+    language: str
+
+class AnalyzeCodeRequest(BaseModel):
+    code: str
+    language: str
+
+class RefactorCodeRequest(BaseModel):
+    code: str
+    language: str
+    instructions: str
+
+class GenerateTestsRequest(BaseModel):
+    code: str
+    language: str
+
+class ContextUpdateRequest(BaseModel):
+    context: Dict[str, Any]
+
+class IssueRequest(BaseModel):
+    issue_number: int
+
+class PrRequest(BaseModel):
+    pr_number: int
+
+class FileRequest(BaseModel):
+    file_path: str
+
+class RequirementsRequest(BaseModel):
+    requirements: str
 
 class ProjectContextRequest(BaseModel):
     project_name: str
     project_description: str
-    github_repo: Optional[str] = None
+    requirements_text: str
 
-class ExecuteTasksRequest(BaseModel):
-    max_concurrent_tasks: int = 3
+class DeploymentPlanRequest(BaseModel):
+    deployment_plan: str
 
-class ApiCredentialsRequest(BaseModel):
-    github_token: Optional[str] = None
-    codegen_token: Optional[str] = None
-    llm_provider: Optional[str] = None
-    llm_api_key: Optional[str] = None
-    ngrok_token: Optional[str] = None
+class ExecuteStepsRequest(BaseModel):
+    max_concurrent_steps: int = 1
 
-# Routes
+class ExecuteSingleStepRequest(BaseModel):
+    step_id: str
+    step_title: str
+    step_description: str
+
+class StepIdRequest(BaseModel):
+    step_id: str
+
+# Initialize UI
+def get_ui():
+    global ui
+    if ui is None:
+        ui = TaskWeaverUIEnhanced(None, None, None)
+    return ui
+
+# API routes
 @app.get("/", response_class=HTMLResponse)
 async def get_index(request: Request):
     """
     Get the index page
     """
-    return templates.TemplateResponse("index_enhanced.html", {"request": request})
+    return templates.TemplateResponse("index.html", {"request": request})
 
-@app.post("/api/credentials")
-async def set_credentials(request: ApiCredentialsRequest):
+@app.get("/codegen", response_class=HTMLResponse)
+async def get_codegen(request: Request):
     """
-    Set API credentials
+    Get the Codegen page
     """
-    global api_credentials
-    
-    # Update credentials
-    if request.github_token:
-        api_credentials["github_token"] = request.github_token
-    
-    if request.codegen_token:
-        api_credentials["codegen_token"] = request.codegen_token
-        # Initialize Codegen agent
-        ui.initialize_agent(request.codegen_token)
-    
-    if request.llm_provider:
-        api_credentials["llm_provider"] = request.llm_provider
-    
-    if request.llm_api_key:
-        api_credentials["llm_api_key"] = request.llm_api_key
-    
-    if request.ngrok_token:
-        api_credentials["ngrok_token"] = request.ngrok_token
-    
-    return {"status": "success"}
+    return templates.TemplateResponse("codegen.html", {"request": request})
 
-@app.get("/api/credentials")
-async def get_credentials():
+@app.get("/api/codegen/status")
+async def get_codegen_status():
     """
-    Get API credentials status
+    Get the status of the Codegen integration
     """
-    return {
-        "github_token": bool(api_credentials["github_token"]),
-        "codegen_token": bool(api_credentials["codegen_token"]),
-        "llm_provider": api_credentials["llm_provider"],
-        "llm_api_key": bool(api_credentials["llm_api_key"]),
-        "ngrok_token": bool(api_credentials["ngrok_token"]),
-    }
+    ui = get_ui()
+    status = ui.get_integration_status()
+    return status
 
-@app.post("/api/chat/message")
-async def add_message(request: MessageRequest):
+@app.post("/api/codegen/initialize")
+async def initialize_codegen(request: InitializeRequest):
     """
-    Add a message to the chat
+    Initialize Codegen integration
     """
-    # Add message to chat history
-    ui.add_message("user", request.content)
+    ui = get_ui()
     
-    # Generate response
-    response = "I've received your message and updated the requirements. When you're satisfied with the plan, press Initialize to start the implementation."
-    ui.add_message("assistant", response)
+    # Update API credentials
+    api_credentials["github_token"] = request.github_token
+    api_credentials["codegen_token"] = request.codegen_token
+    api_credentials["ngrok_token"] = request.ngrok_token
+    api_credentials["codegen_org_id"] = request.codegen_org_id
     
-    return {"status": "success", "response": response}
+    # Initialize Codegen integration
+    success = ui.initialize_integration(
+        github_token=request.github_token,
+        codegen_token=request.codegen_token,
+        ngrok_token=request.ngrok_token,
+        codegen_org_id=request.codegen_org_id
+    )
+    
+    if success:
+        # Get GitHub repositories
+        global github_repos
+        github_repos = ui.get_github_repos()
+        
+    return {"success": success}
 
-@app.get("/api/chat/history")
-async def get_chat_history():
+@app.get("/api/codegen/repositories")
+async def get_repositories():
     """
-    Get chat history
+    Get list of GitHub repositories
     """
-    return {"history": ui.get_chat_history()}
+    ui = get_ui()
+    repos = ui.get_github_repos()
+    
+    # Get active repository
+    status = ui.get_integration_status()
+    active_repo = status.get("repository", None)
+    
+    return {"success": True, "repositories": repos, "active_repository": active_repo}
 
-@app.post("/api/project/context")
+@app.post("/api/codegen/repository")
+async def set_repository(request: SetRepositoryRequest):
+    """
+    Set the active GitHub repository
+    """
+    ui = get_ui()
+    success = ui.set_repository(request.repo_name)
+    return {"success": success}
+
+@app.post("/api/codegen/tasks")
+async def create_task(request: CreateTaskRequest):
+    """
+    Create a Codegen task
+    """
+    ui = get_ui()
+    result = ui.create_codegen_task(request.prompt, request.repo_name)
+    
+    if result.get("success", False):
+        # Store task in active tasks
+        task_id = result.get("task_id")
+        active_tasks[task_id] = {
+            "id": task_id,
+            "prompt": request.prompt,
+            "repo_name": request.repo_name,
+            "status": "created",
+            "created_at": None,
+            "updated_at": None,
+            "completed": False,
+            "result": None
+        }
+    
+    return result
+
+@app.get("/api/codegen/tasks")
+async def get_tasks():
+    """
+    Get all tasks
+    """
+    ui = get_ui()
+    result = ui.list_tasks()
+    
+    # If no tasks from the API, use the active tasks
+    if not result.get("success", False) or not result.get("tasks"):
+        tasks = []
+        for task_id, task in active_tasks.items():
+            # Get latest status
+            status = ui.get_task_status(task_id)
+            if status.get("success", False):
+                task.update(status.get("task", {}))
+            tasks.append(task)
+        
+        return {"success": True, "tasks": tasks}
+    
+    return result
+
+@app.get("/api/codegen/tasks/{task_id}")
+async def get_task(task_id: str):
+    """
+    Get a specific task
+    """
+    ui = get_ui()
+    result = ui.get_task_status(task_id)
+    
+    if result.get("success", False):
+        # Update active task
+        if task_id in active_tasks:
+            active_tasks[task_id].update(result.get("task", {}))
+    
+    return result
+
+@app.post("/api/codegen/generate-code")
+async def generate_code(request: GenerateCodeRequest):
+    """
+    Generate code using Codegen
+    """
+    ui = get_ui()
+    return ui.generate_code(request.prompt, request.language)
+
+@app.post("/api/codegen/analyze-code")
+async def analyze_code(request: AnalyzeCodeRequest):
+    """
+    Analyze code using Codegen
+    """
+    ui = get_ui()
+    return ui.analyze_code(request.code, request.language)
+
+@app.post("/api/codegen/refactor-code")
+async def refactor_code(request: RefactorCodeRequest):
+    """
+    Refactor code using Codegen
+    """
+    ui = get_ui()
+    return ui.refactor_code(request.code, request.language, request.instructions)
+
+@app.post("/api/codegen/generate-tests")
+async def generate_tests(request: GenerateTestsRequest):
+    """
+    Generate tests for code using Codegen
+    """
+    ui = get_ui()
+    return ui.generate_tests(request.code, request.language)
+
+@app.get("/api/codegen/context")
+async def get_context():
+    """
+    Get shared context between TaskWeaver and Codegen
+    """
+    ui = get_ui()
+    return ui.get_shared_context()
+
+@app.post("/api/codegen/context/taskweaver")
+async def update_taskweaver_context(request: ContextUpdateRequest):
+    """
+    Update TaskWeaver context
+    """
+    ui = get_ui()
+    return ui.update_taskweaver_context(request.context)
+
+@app.post("/api/codegen/context/codegen")
+async def update_codegen_context(request: ContextUpdateRequest):
+    """
+    Update Codegen context
+    """
+    ui = get_ui()
+    return ui.update_codegen_context(request.context)
+
+@app.post("/api/codegen/context/issue")
+async def add_issue_to_context(request: IssueRequest):
+    """
+    Add a GitHub issue to the context
+    """
+    ui = get_ui()
+    return ui.add_issue_to_context(request.issue_number)
+
+@app.post("/api/codegen/context/pr")
+async def add_pr_to_context(request: PrRequest):
+    """
+    Add a GitHub pull request to the context
+    """
+    ui = get_ui()
+    return ui.add_pr_to_context(request.pr_number)
+
+@app.post("/api/codegen/context/file")
+async def add_file_to_context(request: FileRequest):
+    """
+    Add a file to the context
+    """
+    ui = get_ui()
+    return ui.add_file_to_context(request.file_path)
+
+@app.post("/api/codegen/requirements")
+async def create_requirements(request: RequirementsRequest):
+    """
+    Create or update a REQUIREMENTS.md file in the repository
+    """
+    ui = get_ui()
+    return ui.create_requirements_document(request.requirements)
+
+@app.post("/api/codegen/workflow/start")
+async def start_workflow():
+    """
+    Start the Codegen workflow
+    """
+    ui = get_ui()
+    return ui.start_workflow()
+
+@app.post("/api/codegen/workflow/stop")
+async def stop_workflow():
+    """
+    Stop the Codegen workflow
+    """
+    ui = get_ui()
+    return ui.stop_workflow()
+
+# New weaver integration endpoints
+
+@app.post("/api/weaver/project-context")
 async def set_project_context(request: ProjectContextRequest):
     """
-    Set project context
+    Set the project context for the Codegen agent
     """
-    ui.set_project_context(request.project_name, request.project_description)
-    
-    # If GitHub repository is provided, set it
-    if request.github_repo:
-        ui.set_github_repository(request.github_repo)
-    
-    return {"status": "success"}
+    ui = get_ui()
+    return ui.set_project_context(
+        project_name=request.project_name,
+        project_description=request.project_description,
+        requirements_text=request.requirements_text
+    )
 
-@app.get("/api/requirements")
-async def get_requirements():
+@app.post("/api/weaver/deployment-steps")
+async def parse_deployment_steps(request: DeploymentPlanRequest):
     """
-    Get requirements
+    Parse deployment steps from a deployment plan
     """
-    return ui.get_requirements()
+    ui = get_ui()
+    return ui.parse_deployment_steps(request.deployment_plan)
 
-@app.post("/api/tasks/execute")
-async def execute_tasks(request: ExecuteTasksRequest):
+@app.post("/api/weaver/execute-steps")
+async def execute_deployment_steps(request: ExecuteStepsRequest):
     """
-    Execute tasks
+    Execute deployment steps
     """
-    # Start task execution
-    ui.execute_tasks(request.max_concurrent_tasks)
-    
-    return {"status": "success"}
+    ui = get_ui()
+    return ui.execute_deployment_steps(max_concurrent_steps=request.max_concurrent_steps)
 
-@app.get("/api/tasks/status")
-async def get_task_status():
+@app.post("/api/weaver/execute-step")
+async def execute_single_step(request: ExecuteSingleStepRequest):
     """
-    Get task execution status
+    Execute a single deployment step
     """
-    return ui.get_execution_status()
+    ui = get_ui()
+    return ui.execute_single_step(
+        step_id=request.step_id,
+        step_title=request.step_title,
+        step_description=request.step_description
+    )
 
-@app.post("/api/tasks/cancel")
-async def cancel_tasks():
+@app.get("/api/weaver/step/{step_id}/status")
+async def get_step_status(step_id: str):
     """
-    Cancel task execution
+    Get the status of a deployment step
     """
-    result = ui.cancel_execution()
-    
-    return {"status": "success" if result else "error"}
+    ui = get_ui()
+    return ui.get_step_status(step_id)
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
+@app.get("/api/weaver/step/{step_id}/result")
+async def get_step_result(step_id: str):
     """
-    WebSocket endpoint for real-time updates
+    Get the result of a deployment step
     """
-    await websocket.accept()
-    active_connections.append(websocket)
-    
-    try:
-        while True:
-            # Wait for messages
-            data = await websocket.receive_text()
-            
-            # Process message
-            message = json.loads(data)
-            
-            if message["type"] == "ping":
-                # Send status update
-                await websocket.send_json({
-                    "type": "status",
-                    "data": ui.get_execution_status()
-                })
-            
-            # Sleep to avoid high CPU usage
-            await asyncio.sleep(0.1)
-    except WebSocketDisconnect:
-        active_connections.remove(websocket)
-    except Exception as e:
-        logger.error(f"WebSocket error: {str(e)}")
-        if websocket in active_connections:
-            active_connections.remove(websocket)
+    ui = get_ui()
+    return ui.get_step_result(step_id)
 
-async def broadcast_status():
+@app.get("/api/weaver/steps/results")
+async def get_all_step_results():
     """
-    Broadcast status updates to all connected clients
+    Get all deployment step results
     """
-    while True:
-        if active_connections:
-            # Get current status
-            status = ui.get_execution_status()
-            
-            # Broadcast to all connections
-            for connection in active_connections:
-                try:
-                    await connection.send_json({
-                        "type": "status",
-                        "data": status
-                    })
-                except Exception as e:
-                    logger.error(f"Error broadcasting status: {str(e)}")
-        
-        # Wait before next update
-        await asyncio.sleep(1)
+    ui = get_ui()
+    return ui.get_all_step_results()
 
-@app.on_event("startup")
-async def startup_event():
+@app.get("/api/weaver/status")
+async def get_weaver_status():
     """
-    Startup event
+    Get the status of the weaver integration
     """
-    # Start background task for broadcasting status
-    asyncio.create_task(broadcast_status())
+    ui = get_ui()
+    return ui.get_weaver_status()
 
-@app.get("/api/github/repos")
-async def get_github_repos():
+@app.post("/api/weaver/cancel")
+async def cancel_all_steps():
     """
-    Get GitHub repositories
+    Cancel all running deployment steps
     """
-    if not api_credentials["github_token"]:
-        return {"status": "error", "message": "GitHub token not set"}
-    
-    try:
-        # Initialize GitHub client with token
-        from github import Github
-        github_client = Github(api_credentials["github_token"])
-        
-        # Get repositories
-        repos = []
-        for repo in github_client.get_user().get_repos():
-            repos.append({
-                "name": repo.full_name,
-                "description": repo.description or "",
-                "url": repo.html_url,
-                "stars": repo.stargazers_count,
-                "forks": repo.forks_count,
-            })
-        
-        return {"status": "success", "repos": repos}
-    except Exception as e:
-        logger.error(f"Error getting GitHub repositories: {str(e)}")
-        return {"status": "error", "message": str(e)}
+    ui = get_ui()
+    return ui.cancel_all_steps()
 
 def run_server(host: str = "0.0.0.0", port: int = 8000):
     """
     Run the server
-    
-    Args:
-        host: Host to bind the server to
-        port: Port to bind the server to
     """
     uvicorn.run(app, host=host, port=port)
 
 if __name__ == "__main__":
     run_server()
+

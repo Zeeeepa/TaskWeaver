@@ -55,7 +55,10 @@ api_credentials = {
 config = AppConfigSource()
 
 # Create dependencies for TaskWeaver app
-telemetry_logger = TelemetryLogger(config)
+# Get log directory from config or use a default
+log_dir = os.path.join(os.path.dirname(current_dir), "logs")
+os.makedirs(log_dir, exist_ok=True)
+telemetry_logger = TelemetryLogger(log_dir=log_dir)
 session_manager = SessionManager(config, telemetry_logger)
 tracing = Tracing(config, telemetry_logger)
 

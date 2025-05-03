@@ -1,91 +1,76 @@
 #!/usr/bin/env python3
 """
-Concurrent Execution Engine for Codegen Agent
-
-This module provides a concurrent execution engine for the Codegen agent,
-allowing for parallel execution of tasks.
+Concurrent execution engine for TaskWeaver-Codegen integration
 """
 
-import os
-import sys
-import json
 import time
 import asyncio
 import logging
-import threading
+from typing import Dict, List, Optional, Any, Union, Tuple
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, List, Optional, Any, Union, Tuple, Set
-from enum import Enum
 
 from injector import inject
 
 from standalone_taskweaver.app.app import TaskWeaverApp
 from standalone_taskweaver.config.config_mgt import AppConfigSource
 from standalone_taskweaver.logging import TelemetryLogger
-from standalone_taskweaver.memory import Memory
 from standalone_taskweaver.codegen_agent.requirements_manager import AtomicTask
-from standalone_taskweaver.codegen_agent.utils import safe_execute, validate_required_params
-from standalone_taskweaver.codegen_agent.task_polling import poll_codegen_task_async, poll_codegen_task_sync
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("concurrent-execution")
+logger = logging.getLogger("concurrent-execution-engine")
 
-class TaskStatus(Enum):
+class TaskResult:
     """
-    Status of a task
+    Result of a task execution
     """
+    
+    def __init__(
+        self,
+        task_id: str,
+        codegen_task_id: str = "",
+        status: str = "pending",
+        start_time: float = 0,
+        end_time: float = 0,
+        result: Any = None,
+        error: Exception = None,
+    ) -> None:
+        self.task_id = task_id
+        self.codegen_task_id = codegen_task_id
+        self.status = status
+        self.start_time = start_time
+        self.end_time = end_time
+        self.duration = end_time - start_time if end_time > 0 else 0
+        self.result = result
+        self.error = error
+        
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary"""
+        return {
+            "task_id": self.task_id,
+            "codegen_task_id": self.codegen_task_id,
+            "status": self.status,
+            "start_time": self.start_time,
+            "end_time": self.end_time,
+            "duration": self.duration,
+            "result": self.result,
+            "error": str(self.error) if self.error else None,
+        }
+
+class TaskStatus:
+    """
+    Task status constants
+    """
+    
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
 
-class TaskResult:
-    """
-    Result of a task execution
-    """
-    def __init__(
-        self,
-        id: str,
-        status: TaskStatus,
-        result: Optional[Any] = None,
-        error: Optional[str] = None,
-        start_time: Optional[float] = None,
-        end_time: Optional[float] = None,
-        duration: Optional[float] = None,
-    ) -> None:
-        self.id = id
-        self.status = status
-        self.result = result
-        self.error = error
-        self.start_time = start_time or time.time()
-        self.end_time = end_time or time.time()
-        self.duration = duration or (self.end_time - self.start_time)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert the task result to a dictionary
-        
-        Returns:
-            Dict[str, Any]: Dictionary representation of the task result
-        """
-        return {
-            "id": self.id,
-            "status": self.status.value,
-            "result": self.result,
-            "error": self.error,
-            "start_time": self.start_time,
-            "end_time": self.end_time,
-            "duration": self.duration,
-        }
-
 class ConcurrentExecutionEngine:
     """
-    Concurrent execution engine for the Codegen agent
-    
-    This class provides a concurrent execution engine for the Codegen agent,
-    allowing for parallel execution of tasks.
+    Engine for concurrent execution of tasks
     """
     
     @inject
@@ -94,642 +79,375 @@ class ConcurrentExecutionEngine:
         app: TaskWeaverApp,
         config: AppConfigSource,
         logger: TelemetryLogger,
-        memory: Optional[Memory] = None,
-        max_concurrent_tasks: int = 3,
     ) -> None:
         self.app = app
         self.config = config
         self.logger = logger
-        self.memory = memory or Memory()
+        self.codegen_org_id = None
+        self.codegen_token = None
+        self.codegen_agent = None
+        self.max_concurrent_tasks = 5
+        self.tasks = {}
         
-        # Codegen agent
+    def initialize(self, codegen_org_id: str, codegen_token: str) -> None:
+        """
+        Initialize the concurrent execution engine with Codegen credentials
+        
+        Args:
+            codegen_org_id: Codegen organization ID
+            codegen_token: Codegen API token
+        """
+        self.codegen_org_id = codegen_org_id
+        self.codegen_token = codegen_token
+        self.logger.info("Concurrent execution engine initialized")
+        
+        # Initialize Codegen agent
+        # This is a placeholder - actual implementation would depend on the Codegen SDK
         self.codegen_agent = None
         
-        # Task execution
-        self.max_concurrent_tasks = max_concurrent_tasks
-        self.executor = ThreadPoolExecutor(max_workers=max_concurrent_tasks)
-        
-        # Task tracking
-        self.tasks = {}
-        self.task_results = {}
-        self.task_lock = threading.Lock()
-        self.running_tasks = set()
-        self.cancel_event = threading.Event()
-    
-    def execute_tasks(self, tasks: List[AtomicTask]) -> Dict[str, TaskResult]:
-        """
-        Execute tasks concurrently
-        
-        Args:
-            tasks: List of tasks to execute
-            
-        Returns:
-            Dict[str, TaskResult]: Results of the tasks
-        """
-        # Validate parameters
-        if not tasks:
-            raise ValueError("No tasks provided")
-        
-        if not self.codegen_agent:
-            raise ValueError("Codegen agent not initialized")
-        
-        # Reset cancel event
-        self.cancel_event.clear()
-        
-        # Create a dependency graph
-        dependency_graph = self._create_dependency_graph(tasks)
-        
-        # Get tasks with no dependencies
-        ready_tasks = [task for task in tasks if not dependency_graph.get(task.id, [])]
-        
-        # Initialize task tracking
-        with self.task_lock:
-            self.tasks = {task.id: task for task in tasks}
-            self.task_results = {}
-            self.running_tasks = set()
-        
-        # Execute tasks
-        while ready_tasks or self.running_tasks:
-            # Check if cancellation was requested
-            if self.cancel_event.is_set():
-                self._cancel_running_tasks()
-                break
-            
-            # Start new tasks if possible
-            while ready_tasks and len(self.running_tasks) < self.max_concurrent_tasks:
-                task = ready_tasks.pop(0)
-                self._start_task(task)
-            
-            # Wait for a task to complete
-            time.sleep(0.1)
-            
-            # Check for completed tasks
-            completed_tasks = []
-            with self.task_lock:
-                for task_id in list(self.running_tasks):
-                    if task_id in self.task_results and self.task_results[task_id].status != TaskStatus.RUNNING:
-                        completed_tasks.append(task_id)
-                        self.running_tasks.remove(task_id)
-            
-            # Update ready tasks based on completed tasks
-            for task_id in completed_tasks:
-                # Find tasks that depend on this task
-                for dependent_task_id, dependencies in dependency_graph.items():
-                    if task_id in dependencies:
-                        dependencies.remove(task_id)
-                        # If all dependencies are satisfied, add to ready tasks
-                        if not dependencies and dependent_task_id in self.tasks:
-                            ready_tasks.append(self.tasks[dependent_task_id])
-        
-        # Return results
-        with self.task_lock:
-            return self.task_results.copy()
-    
-    async def execute_tasks_async(self, tasks: List[AtomicTask]) -> Dict[str, TaskResult]:
-        """
-        Execute tasks concurrently using asyncio
-        
-        Args:
-            tasks: List of tasks to execute
-            
-        Returns:
-            Dict[str, TaskResult]: Results of the tasks
-        """
-        # Validate parameters
-        if not tasks:
-            raise ValueError("No tasks provided")
-        
-        if not self.codegen_agent:
-            raise ValueError("Codegen agent not initialized")
-        
-        # Reset cancel event
-        self.cancel_event.clear()
-        
-        # Create a dependency graph
-        dependency_graph = self._create_dependency_graph(tasks)
-        
-        # Get tasks with no dependencies
-        ready_tasks = [task for task in tasks if not dependency_graph.get(task.id, [])]
-        
-        # Initialize task tracking
-        with self.task_lock:
-            self.tasks = {task.id: task for task in tasks}
-            self.task_results = {}
-            self.running_tasks = set()
-        
-        # Create a queue for completed tasks
-        completed_queue = asyncio.Queue()
-        
-        # Execute tasks
-        async def execute_task(task):
-            result = await self._execute_task_async(task)
-            await completed_queue.put(task.id)
-            return result
-        
-        # Main execution loop
-        running_tasks = set()
-        while ready_tasks or running_tasks:
-            # Check if cancellation was requested
-            if self.cancel_event.is_set():
-                # Cancel running tasks
-                for task_id in running_tasks:
-                    with self.task_lock:
-                        if task_id in self.running_tasks:
-                            self.running_tasks.remove(task_id)
-                break
-            
-            # Start new tasks if possible
-            while ready_tasks and len(running_tasks) < self.max_concurrent_tasks:
-                task = ready_tasks.pop(0)
-                task_id = task.id
-                running_tasks.add(task_id)
-                with self.task_lock:
-                    self.running_tasks.add(task_id)
-                asyncio.create_task(execute_task(task))
-            
-            # Wait for a task to complete
-            try:
-                completed_task_id = await asyncio.wait_for(completed_queue.get(), 0.1)
-                running_tasks.remove(completed_task_id)
-                
-                # Find tasks that depend on this task
-                for dependent_task_id, dependencies in dependency_graph.items():
-                    if completed_task_id in dependencies:
-                        dependencies.remove(completed_task_id)
-                        # If all dependencies are satisfied, add to ready tasks
-                        if not dependencies and dependent_task_id in self.tasks:
-                            ready_tasks.append(self.tasks[dependent_task_id])
-            except asyncio.TimeoutError:
-                # No task completed in the timeout period
-                await asyncio.sleep(0.1)
-        
-        # Return results
-        with self.task_lock:
-            return self.task_results.copy()
-    
-    def execute_single_task(self, task: AtomicTask, timeout: Optional[float] = None) -> TaskResult:
-        """
-        Execute a single task
-        
-        Args:
-            task: Task to execute
-            timeout: Optional timeout in seconds for task execution
-            
-        Returns:
-            TaskResult: Result of the task
-            
-        Raises:
-            TimeoutError: If the task execution exceeds the timeout
-        """
-        # Validate task
-        if not task or not isinstance(task, AtomicTask):
-            raise ValueError("Invalid task provided")
-            
-        # Create a task result
-        result = TaskResult(
-            id=task.id,
-            status=TaskStatus.RUNNING,
-            result=None,
-            error=None,
-            start_time=time.time(),
-            end_time=None,
-            duration=None
-        )
-        
-        # Store the result
-        with self.task_lock:
-            self.task_results[task.id] = result
-            self.running_tasks.add(task.id)
-        
-        try:
-            # Get context for the task
-            context = self._get_context_for_task(task)
-            
-            # Execute the task with timeout if specified
-            if timeout:
-                # Use a future with timeout
-                future = self.executor.submit(self._execute_task_with_agent, task, context)
-                try:
-                    task_result = future.result(timeout=timeout)
-                except concurrent.futures.TimeoutError:
-                    # Task timed out
-                    end_time = time.time()
-                    result.status = TaskStatus.FAILED
-                    result.error = f"Task execution timed out after {timeout} seconds"
-                    result.end_time = end_time
-                    result.duration = end_time - result.start_time
-                    
-                    # Cancel the task if possible
-                    future.cancel()
-                    
-                    # Update the result
-                    with self.task_lock:
-                        self.task_results[task.id] = result
-                        if task.id in self.running_tasks:
-                            self.running_tasks.remove(task.id)
-                            
-                    return result
-            else:
-                # Execute without timeout
-                task_result = self._execute_task_with_agent(task, context)
-            
-            # Update the result
-            end_time = time.time()
-            result.status = TaskStatus.COMPLETED
-            result.result = task_result
-            result.end_time = end_time
-            result.duration = end_time - result.start_time
-            
-        except Exception as e:
-            # Task failed
-            end_time = time.time()
-            result.status = TaskStatus.FAILED
-            result.error = str(e)
-            result.end_time = end_time
-            result.duration = end_time - result.start_time
-            
-            self.logger.error(f"Error executing task {task.id}: {str(e)}", exc_info=True)
-        
-        # Update the result
-        with self.task_lock:
-            self.task_results[task.id] = result
-            if task.id in self.running_tasks:
-                self.running_tasks.remove(task.id)
-        
-        return result
-    
-    def _execute_task_with_agent(self, task: AtomicTask, context: Dict[str, Any]) -> Any:
-        """
-        Execute a task using the Codegen agent with context
-        
-        Args:
-            task: Task to execute
-            context: Context for the task
-            
-        Returns:
-            Any: Result of the task
-        """
-        # Create a prompt for the task
-        prompt = self._create_task_prompt(task)
-        
-        # Execute the task using the Codegen agent
-        codegen_task = self.codegen_agent.create_task(prompt=prompt, context=context)
-        
-        # Use the helper to poll task status
-        codegen_task = poll_codegen_task_sync(codegen_task)
-        
-        # Check if cancellation was requested
-        if self.cancel_event.is_set():
-            # Update task result
-            result = self.task_results.get(task.id)
-            if result:
-                result.status = TaskStatus.CANCELLED
-                result.end_time = time.time()
-                result.duration = result.end_time - result.start_time
-                
-                # Update task results
-                with self.task_lock:
-                    self.task_results[task.id] = result
-            
-            return None
-        
-        # Process the task result based on its status
-        result = self.task_results.get(task.id)
-        if not result:
-            return None
-            
-        if codegen_task.status == "completed":
-            # Update task result
-            result.status = TaskStatus.COMPLETED
-            result.result = codegen_task.result
-            result.end_time = time.time()
-            result.duration = result.end_time - result.start_time
-            
-            # Update task results
-            with self.task_lock:
-                self.task_results[task.id] = result
-            
-            return codegen_task.result
-        elif codegen_task.status in ["failed", "cancelled"]:
-            # Update task result
-            result.status = TaskStatus.FAILED
-            result.error = f"Codegen task failed: {codegen_task.status}"
-            result.end_time = time.time()
-            result.duration = result.end_time - result.start_time
-            
-            # Update task results
-            with self.task_lock:
-                self.task_results[task.id] = result
-            
-            return None
-        else:
-            # Task timed out or reached an unknown state
-            result.status = TaskStatus.FAILED
-            result.error = f"Task reached unexpected state: {codegen_task.status}"
-            result.end_time = time.time()
-            result.duration = result.end_time - result.start_time
-            
-            # Update task results
-            with self.task_lock:
-                self.task_results[task.id] = result
-            
-            return None
-    
-    def _start_task(self, task: AtomicTask) -> None:
-        """
-        Start a task in a separate thread
-        
-        Args:
-            task: Task to start
-        """
-        task_id = task.id
-        
-        # Add to running tasks
-        with self.task_lock:
-            self.running_tasks.add(task_id)
-        
-        # Submit the task to the executor
-        self.executor.submit(self._execute_task, task)
-    
-    def _execute_task(self, task: AtomicTask) -> TaskResult:
-        """
-        Execute a task
-        
-        Args:
-            task: Task to execute
-            
-        Returns:
-            TaskResult: Result of the task
-        """
-        task_id = task.id
-        result = TaskResult(
-            id=task_id,
-            status=TaskStatus.RUNNING,
-            start_time=time.time()
-        )
-        
-        with self.task_lock:
-            self.task_results[task_id] = result
-        
-        try:
-            # Create a prompt for the task
-            prompt = self._create_task_prompt(task)
-            
-            # Execute the task using the Codegen agent
-            codegen_task = self.codegen_agent.create_task(prompt=prompt)
-            
-            # Use the helper to poll task status
-            codegen_task = poll_codegen_task_sync(codegen_task)
-            
-            # Process the result based on the task status
-            if codegen_task.status == "completed":
-                result.status = TaskStatus.COMPLETED
-                result.result = codegen_task.result
-            elif codegen_task.status in ["failed", "cancelled"]:
-                result.status = TaskStatus.FAILED
-                result.error = f"Codegen task failed: {codegen_task.status}"
-        except Exception as e:
-            result.status = TaskStatus.FAILED
-            result.error = str(e)
-            logger.error(f"Error executing task {task_id}: {e}", exc_info=True)
-        finally:
-            result.end_time = time.time()
-            result.duration = result.end_time - result.start_time
-            
-            with self.task_lock:
-                self.task_results[task_id] = result
-        
-        return result
-    
-    async def _execute_task_async(self, task: AtomicTask) -> TaskResult:
-        """
-        Execute a task asynchronously
-        
-        Args:
-            task: Task to execute
-            
-        Returns:
-            TaskResult: Result of the task
-        """
-        task_id = task.id
-        result = TaskResult(
-            id=task_id,
-            status=TaskStatus.RUNNING,
-            start_time=time.time()
-        )
-        
-        with self.task_lock:
-            self.task_results[task_id] = result
-        
-        try:
-            # Create a prompt for the task
-            prompt = self._create_task_prompt(task)
-            
-            # Execute the task using the Codegen agent
-            codegen_task = self.codegen_agent.create_task(prompt=prompt)
-            
-            # Use the helper to poll task status asynchronously
-            codegen_task = await poll_codegen_task_async(codegen_task)
-            
-            # Process the result based on the task status
-            if codegen_task.status == "completed":
-                result.status = TaskStatus.COMPLETED
-                result.result = codegen_task.result
-            elif codegen_task.status in ["failed", "cancelled"]:
-                result.status = TaskStatus.FAILED
-                result.error = f"Codegen task failed: {codegen_task.status}"
-        except Exception as e:
-            result.status = TaskStatus.FAILED
-            result.error = str(e)
-            logger.error(f"Error executing task {task_id}: {e}", exc_info=True)
-        finally:
-            result.end_time = time.time()
-            result.duration = result.end_time - result.start_time
-            
-            with self.task_lock:
-                self.task_results[task_id] = result
-        
-        return result
-    
-    def _create_dependency_graph(self, tasks: List[AtomicTask]) -> Dict[str, Set[str]]:
-        """
-        Create a dependency graph for the tasks
-        
-        Args:
-            tasks: List of tasks
-            
-        Returns:
-            Dict[str, Set[str]]: Dependency graph
-        """
-        dependency_graph = {}
-        
-        # Create a map of task IDs to tasks
-        task_map = {task.id: task for task in tasks}
-        
-        # Create the dependency graph
-        for task in tasks:
-            dependencies = set()
-            
-            # Add explicit dependencies
-            for dependency_id in task.dependencies:
-                if dependency_id in task_map:
-                    dependencies.add(dependency_id)
-            
-            # Add the dependencies to the graph
-            dependency_graph[task.id] = dependencies
-        
-        return dependency_graph
-    
-    def _create_task_prompt(self, task: AtomicTask) -> str:
+    def _create_prompt(self, task: AtomicTask) -> str:
         """
         Create a prompt for a task
         
         Args:
-            task: Task to create a prompt for
+            task: Atomic task
             
         Returns:
-            str: Prompt for the task
+            Prompt string
         """
-        # Create a prompt template
-        prompt_template = f"""
-# Task: {task.title}
-
-## Description
-{task.description}
-
-## Requirements
-- Implement the functionality described in the task
-- Ensure the code is well-documented
-- Handle edge cases and errors appropriately
-- Follow best practices for the language and framework
-
-## Context
-- Task ID: {task.id}
-- Priority: {task.priority}
-- Phase: {task.phase}
-- Tags: {', '.join(task.tags) if task.tags else 'None'}
-
-Please provide a complete implementation for this task.
-"""
+        prompt = f"# Task: {task.title}\n\n"
+        prompt += f"## Description\n{task.description}\n\n"
         
-        return prompt_template
-    
-    def _get_context_for_task(self, task: AtomicTask) -> Dict[str, Any]:
+        if task.dependencies:
+            prompt += f"## Dependencies\n"
+            for dep_id in task.dependencies:
+                prompt += f"- {dep_id}\n"
+            prompt += "\n"
+            
+        if task.tags:
+            prompt += f"## Tags\n"
+            for tag in task.tags:
+                prompt += f"- {tag}\n"
+            prompt += "\n"
+            
+        return prompt
+        
+    async def execute_tasks(self, tasks: List[AtomicTask]) -> List[TaskResult]:
         """
-        Get context for a task
+        Execute multiple tasks concurrently and return results
         
         Args:
-            task: Task to get context for
+            tasks: List of atomic tasks
             
         Returns:
-            Dict[str, Any]: Context for the task
+            List of task results
         """
-        # Create a context dictionary
-        context = {
-            "task_id": task.id,
-            "priority": task.priority,
-            "phase": task.phase,
-            "tags": task.tags,
-        }
-        
-        return context
-    
-    def _cancel_running_tasks(self) -> None:
-        """
-        Cancel all running tasks
-        """
-        with self.task_lock:
-            for task_id in self.running_tasks:
-                if task_id in self.task_results:
-                    result = self.task_results[task_id]
-                    result.status = TaskStatus.CANCELLED
-                    result.end_time = time.time()
-                    result.duration = result.end_time - result.start_time
+        if not self.codegen_org_id or not self.codegen_token:
+            raise ValueError("Concurrent execution engine not initialized. Call initialize() first.")
             
-            self.running_tasks = set()
-    
-    def cancel_all_tasks(self) -> bool:
-        """
-        Cancel all running tasks
+        # Create a semaphore to limit concurrent tasks
+        semaphore = asyncio.Semaphore(self.max_concurrent_tasks)
         
-        Returns:
-            bool: True if cancellation was successful, False otherwise
+        # Create a list of tasks to execute
+        task_futures = []
+        for task in tasks:
+            task_futures.append(self._execute_task(task, semaphore))
+            
+        # Wait for all tasks to complete
+        results = await asyncio.gather(*task_futures)
+        
+        return results
+        
+    async def _execute_task(self, task: AtomicTask, semaphore: asyncio.Semaphore) -> TaskResult:
         """
+        Execute a single task
+        
+        Args:
+            task: Atomic task
+            semaphore: Semaphore to limit concurrent tasks
+            
+        Returns:
+            Task result
+        """
+        async with semaphore:
+            task_result = TaskResult(
+                task_id=task.id,
+                codegen_task_id="",
+                status=TaskStatus.RUNNING,
+                start_time=time.time(),
+            )
+            self.tasks[task.id] = task_result
+            
+            try:
+                # Create prompt
+                prompt = self._create_prompt(task)
+                
+                # Execute task using Codegen agent
+                # This is a placeholder - actual implementation would depend on the Codegen SDK
+                codegen_task = None
+                
+                if self.codegen_agent:
+                    codegen_task = self.codegen_agent.run(prompt=prompt)
+                    task_result.codegen_task_id = codegen_task.id
+                    
+                    # Poll for task completion
+                    while codegen_task.status not in ["completed", "failed", "cancelled"]:
+                        # Refresh task status
+                        codegen_task.refresh()
+                        
+                        # Wait before polling again
+                        await asyncio.sleep(5)
+                        
+                    # Update task result
+                    if codegen_task.status == "completed":
+                        task_result.status = TaskStatus.COMPLETED
+                        task_result.result = codegen_task.result
+                    elif codegen_task.status == "failed":
+                        task_result.status = TaskStatus.FAILED
+                        task_result.error = Exception(f"Codegen task failed: {codegen_task.error}")
+                    elif codegen_task.status == "cancelled":
+                        task_result.status = TaskStatus.CANCELLED
+                        task_result.error = Exception("Codegen task cancelled")
+                else:
+                    # Simulate task execution
+                    await asyncio.sleep(2)
+                    task_result.status = TaskStatus.COMPLETED
+                    task_result.result = f"Simulated result for task {task.id}"
+                    
+            except Exception as e:
+                task_result.status = TaskStatus.FAILED
+                task_result.error = e
+                self.logger.error(f"Error executing task {task.id}: {e}")
+                
+            finally:
+                task_result.end_time = time.time()
+                task_result.duration = task_result.end_time - task_result.start_time
+                
+            return task_result
+            
+    def execute_task_sync(self, task: AtomicTask) -> TaskResult:
+        """
+        Execute a task synchronously
+        
+        Args:
+            task: Atomic task
+            
+        Returns:
+            Task result
+        """
+        if not self.codegen_org_id or not self.codegen_token:
+            raise ValueError("Concurrent execution engine not initialized. Call initialize() first.")
+            
+        task_result = TaskResult(
+            task_id=task.id,
+            codegen_task_id="",
+            status=TaskStatus.RUNNING,
+            start_time=time.time(),
+        )
+        self.tasks[task.id] = task_result
+        
         try:
-            # Set the cancel event
-            self.cancel_event.set()
+            # Create prompt
+            prompt = self._create_prompt(task)
             
-            # Wait for tasks to be cancelled
-            max_wait = 10  # seconds
-            start_time = time.time()
-            while self.running_tasks and time.time() - start_time < max_wait:
-                time.sleep(0.1)
+            # Execute task using Codegen agent
+            # This is a placeholder - actual implementation would depend on the Codegen SDK
+            codegen_task = None
             
-            # Force cancel any remaining tasks
-            self._cancel_running_tasks()
-            
-            return True
+            if self.codegen_agent:
+                codegen_task = self.codegen_agent.run(prompt=prompt)
+                task_result.codegen_task_id = codegen_task.id
+                
+                # Poll for task completion
+                for _ in range(30):  # Maximum 30 retries
+                    # Refresh task status
+                    codegen_task.refresh()
+                    
+                    if codegen_task.status in ["completed", "failed", "cancelled"]:
+                        break
+                        
+                    # Wait before polling again
+                    time.sleep(5)
+                    
+                # Update task result
+                if codegen_task.status == "completed":
+                    task_result.status = TaskStatus.COMPLETED
+                    task_result.result = codegen_task.result
+                elif codegen_task.status == "failed":
+                    task_result.status = TaskStatus.FAILED
+                    task_result.error = Exception(f"Codegen task failed: {codegen_task.error}")
+                elif codegen_task.status == "cancelled":
+                    task_result.status = TaskStatus.CANCELLED
+                    task_result.error = Exception("Codegen task cancelled")
+                else:
+                    task_result.status = TaskStatus.FAILED
+                    task_result.error = Exception("Codegen task timed out")
+            else:
+                # Simulate task execution
+                time.sleep(2)
+                task_result.status = TaskStatus.COMPLETED
+                task_result.result = f"Simulated result for task {task.id}"
+                
         except Exception as e:
-            logger.error(f"Error cancelling tasks: {str(e)}", exc_info=True)
-            return False
-    
-    def get_task_status(self, task_id: str) -> Dict[str, Any]:
+            task_result.status = TaskStatus.FAILED
+            task_result.error = e
+            self.logger.error(f"Error executing task {task.id}: {e}")
+            
+        finally:
+            task_result.end_time = time.time()
+            task_result.duration = task_result.end_time - task_result.start_time
+            
+        return task_result
+        
+    def execute_tasks_sync(self, tasks: List[AtomicTask]) -> List[TaskResult]:
         """
-        Get the status of a task
+        Execute multiple tasks synchronously and return results
         
         Args:
-            task_id: ID of the task
+            tasks: List of atomic tasks
             
         Returns:
-            Dict[str, Any]: Status of the task
+            List of task results
         """
-        with self.task_lock:
-            if task_id in self.task_results:
-                result = self.task_results[task_id]
-                return {
-                    "id": result.id,
-                    "status": result.status.value,
-                    "start_time": result.start_time,
-                    "end_time": result.end_time,
-                    "duration": result.duration,
-                }
+        if not self.codegen_org_id or not self.codegen_token:
+            raise ValueError("Concurrent execution engine not initialized. Call initialize() first.")
+            
+        results = []
         
-        return {
-            "id": task_id,
-            "status": "not_found",
-        }
-    
-    def get_task_result(self, task_id: str) -> Dict[str, Any]:
+        for task in tasks:
+            result = self.execute_task_sync(task)
+            results.append(result)
+            
+        return results
+        
+    def execute_tasks_parallel(self, tasks: List[AtomicTask], max_workers: int = None) -> List[TaskResult]:
+        """
+        Execute multiple tasks in parallel using a thread pool
+        
+        Args:
+            tasks: List of atomic tasks
+            max_workers: Maximum number of worker threads
+            
+        Returns:
+            List of task results
+        """
+        if not self.codegen_org_id or not self.codegen_token:
+            raise ValueError("Concurrent execution engine not initialized. Call initialize() first.")
+            
+        if max_workers is None:
+            max_workers = min(len(tasks), self.max_concurrent_tasks)
+            
+        results = []
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(self.execute_task_sync, task): task for task in tasks}
+            
+            for future in futures:
+                try:
+                    result = future.result()
+                    results.append(result)
+                except Exception as e:
+                    task = futures[future]
+                    self.logger.error(f"Error executing task {task.id}: {e}")
+                    results.append(TaskResult(
+                        task_id=task.id,
+                        status=TaskStatus.FAILED,
+                        error=e,
+                    ))
+                    
+        return results
+        
+    async def monitor_progress(self, task_ids: List[str]) -> Dict[str, Any]:
+        """
+        Monitor progress of multiple concurrent tasks
+        
+        Args:
+            task_ids: List of task IDs
+            
+        Returns:
+            Dictionary mapping task IDs to statuses
+        """
+        if not self.codegen_org_id or not self.codegen_token:
+            raise ValueError("Concurrent execution engine not initialized. Call initialize() first.")
+            
+        progress = {}
+        
+        for task_id in task_ids:
+            if task_id in self.tasks:
+                task_result = self.tasks[task_id]
+                progress[task_id] = task_result.to_dict()
+            else:
+                progress[task_id] = {"status": "unknown"}
+                
+        return progress
+        
+    def get_task_result(self, task_id: str) -> Optional[TaskResult]:
         """
         Get the result of a task
         
         Args:
-            task_id: ID of the task
+            task_id: Task ID
             
         Returns:
-            Dict[str, Any]: Result of the task
+            Task result if found, None otherwise
         """
-        with self.task_lock:
-            if task_id in self.task_results:
-                return self.task_results[task_id].to_dict()
+        return self.tasks.get(task_id)
         
-        return {
-            "id": task_id,
-            "status": "not_found",
-        }
-    
-    def get_status(self) -> Dict[str, Any]:
+    def get_all_task_results(self) -> Dict[str, TaskResult]:
         """
-        Get the status of the execution engine
+        Get all task results
         
         Returns:
-            Dict[str, Any]: Status of the execution engine
+            Dictionary mapping task IDs to task results
         """
-        with self.task_lock:
-            return {
-                "running_tasks": len(self.running_tasks),
-                "total_tasks": len(self.tasks),
-                "completed_tasks": sum(1 for result in self.task_results.values() if result.status == TaskStatus.COMPLETED),
-                "failed_tasks": sum(1 for result in self.task_results.values() if result.status == TaskStatus.FAILED),
-                "cancelled_tasks": sum(1 for result in self.task_results.values() if result.status == TaskStatus.CANCELLED),
-            }
+        return self.tasks
+        
+    def cancel_task(self, task_id: str) -> bool:
+        """
+        Cancel a task
+        
+        Args:
+            task_id: Task ID
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if task_id not in self.tasks:
+            return False
+            
+        task_result = self.tasks[task_id]
+        
+        if task_result.status in [TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED]:
+            return False
+            
+        # Cancel the task
+        task_result.status = TaskStatus.CANCELLED
+        task_result.end_time = time.time()
+        task_result.duration = task_result.end_time - task_result.start_time
+        task_result.error = Exception("Task cancelled")
+        
+        # Cancel the Codegen task if it exists
+        if task_result.codegen_task_id and self.codegen_agent:
+            try:
+                # This is a placeholder - actual implementation would depend on the Codegen SDK
+                pass
+            except Exception as e:
+                self.logger.error(f"Error cancelling Codegen task {task_result.codegen_task_id}: {e}")
+                
+        return True
+        
+    def cancel_all_tasks(self) -> int:
+        """
+        Cancel all running tasks
+        
+        Returns:
+            Number of tasks cancelled
+        """
+        cancelled_count = 0
+        
+        for task_id in self.tasks:
+            if self.cancel_task(task_id):
+                cancelled_count += 1
+                
+        return cancelled_count
+

@@ -1,33 +1,16 @@
 #!/usr/bin/env python3
 """
-Interface Generator for TaskWeaver-Codegen Integration
-
-This module provides functionality for generating interfaces for components
-to enable parallel development.
+Interface generator for TaskWeaver-Codegen integration
 """
 
-import os
-import re
-import sys
-import json
 import logging
-from typing import Dict, List, Optional, Any, Union, Tuple, Set
+from typing import Dict, List, Optional, Any, Union, Tuple
 
 from injector import inject
 
 from standalone_taskweaver.app.app import TaskWeaverApp
 from standalone_taskweaver.config.config_mgt import AppConfigSource
 from standalone_taskweaver.logging import TelemetryLogger
-from standalone_taskweaver.codegen_agent.requirements_manager import AtomicTask
-
-# Import Codegen SDK
-try:
-    from codegen import Agent
-except ImportError:
-    print("Codegen SDK not found. Installing...")
-    import subprocess
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "codegen"])
-    from codegen import Agent
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -35,7 +18,7 @@ logger = logging.getLogger("interface-generator")
 
 class InterfaceGenerator:
     """
-    Generates interfaces for components to enable parallel development
+    Generator for interface definitions and mock implementations
     """
     
     @inject
@@ -48,18 +31,20 @@ class InterfaceGenerator:
         self.app = app
         self.config = config
         self.logger = logger
-        self.codegen_agent = None
+        self.codegen_org_id = None
+        self.codegen_token = None
         
-    def initialize(self, org_id: str, token: str) -> None:
+    def initialize(self, codegen_org_id: str, codegen_token: str) -> None:
         """
-        Initialize the Codegen agent
+        Initialize the interface generator with Codegen credentials
         
         Args:
-            org_id: Codegen organization ID
-            token: Codegen API token
+            codegen_org_id: Codegen organization ID
+            codegen_token: Codegen API token
         """
-        self.codegen_agent = Agent(org_id=org_id, token=token)
-        logger.info("Initialized Codegen agent")
+        self.codegen_org_id = codegen_org_id
+        self.codegen_token = codegen_token
+        self.logger.info("Interface generator initialized")
         
     def generate_interface(self, component_spec: Dict[str, Any]) -> str:
         """
@@ -71,58 +56,38 @@ class InterfaceGenerator:
         Returns:
             Interface definition
         """
-        if not self.codegen_agent:
-            raise ValueError("Codegen agent not initialized. Call initialize() first.")
+        if not self.codegen_org_id or not self.codegen_token:
+            raise ValueError("Interface generator not initialized. Call initialize() first.")
             
-        # Create a prompt for the interface
-        prompt = self._create_interface_prompt(component_spec)
+        # Extract component name and methods
+        component_name = component_spec.get("name", "Component")
+        methods = component_spec.get("methods", [])
         
-        # Execute the task using the Codegen SDK
-        task = self.codegen_agent.run(prompt=prompt)
+        # Generate interface
+        interface = f"from abc import ABC, abstractmethod\n\n"
+        interface += f"class {component_name}Interface(ABC):\n"
+        interface += f"    \"\"\"\n"
+        interface += f"    Interface for {component_name}\n"
+        interface += f"    \"\"\"\n\n"
         
-        # Wait for the task to complete
-        while task.status not in ["completed", "failed", "cancelled"]:
-            # Refresh the task status
-            task.refresh()
+        # Add methods
+        for method in methods:
+            method_name = method.get("name", "method")
+            params = method.get("params", [])
+            return_type = method.get("return_type", "Any")
             
-            # Wait a bit before checking again
-            import time
-            time.sleep(5)
+            # Format parameters
+            param_str = ", ".join([f"{param['name']}: {param['type']}" for param in params])
             
-        # Return the result
-        if task.status == "completed":
-            return task.result
-        else:
-            raise Exception(f"Failed to generate interface: {task.error}")
+            # Add method
+            interface += f"    @abstractmethod\n"
+            interface += f"    def {method_name}(self, {param_str}) -> {return_type}:\n"
+            interface += f"        \"\"\"\n"
+            interface += f"        {method.get('description', '')}\n"
+            interface += f"        \"\"\"\n"
+            interface += f"        pass\n\n"
             
-    def _create_interface_prompt(self, component_spec: Dict[str, Any]) -> str:
-        """
-        Create a prompt for generating an interface
-        
-        Args:
-            component_spec: Component specification
-            
-        Returns:
-            Prompt string
-        """
-        prompt = f"# Generate Interface for {component_spec.get('name', 'Component')}\n\n"
-        
-        prompt += "## Component Specification\n\n"
-        
-        # Add component details
-        for key, value in component_spec.items():
-            prompt += f"### {key.capitalize()}\n\n{value}\n\n"
-            
-        prompt += "## Instructions\n\n"
-        prompt += "Please generate a clear and comprehensive interface for this component. Include:\n\n"
-        prompt += "1. Interface definition with all required methods and properties\n"
-        prompt += "2. Method signatures with parameter and return types\n"
-        prompt += "3. Detailed documentation for each method and property\n"
-        prompt += "4. Type hints and annotations\n"
-        prompt += "5. Usage examples\n\n"
-        prompt += "The interface should be designed to enable parallel development of dependent components.\n"
-        
-        return prompt
+        return interface
         
     def create_mock_implementation(self, interface: str) -> str:
         """
@@ -134,293 +99,69 @@ class InterfaceGenerator:
         Returns:
             Mock implementation
         """
-        if not self.codegen_agent:
-            raise ValueError("Codegen agent not initialized. Call initialize() first.")
+        if not self.codegen_org_id or not self.codegen_token:
+            raise ValueError("Interface generator not initialized. Call initialize() first.")
             
-        # Create a prompt for the mock implementation
-        prompt = self._create_mock_prompt(interface)
+        # Parse interface to extract class name and methods
+        import re
         
-        # Execute the task using the Codegen SDK
-        task = self.codegen_agent.run(prompt=prompt)
-        
-        # Wait for the task to complete
-        while task.status not in ["completed", "failed", "cancelled"]:
-            # Refresh the task status
-            task.refresh()
+        # Extract class name
+        class_match = re.search(r"class\s+(\w+)\(", interface)
+        if not class_match:
+            raise ValueError("Invalid interface definition")
             
-            # Wait a bit before checking again
-            import time
-            time.sleep(5)
+        interface_name = class_match.group(1)
+        class_name = interface_name.replace("Interface", "Mock")
+        
+        # Extract methods
+        method_matches = re.finditer(r"@abstractmethod\s+def\s+(\w+)\(self,\s*(.*?)\)\s*->\s*([\w\[\]]+):", interface)
+        
+        # Generate mock implementation
+        mock = f"from typing import Any, Dict, List, Optional, Union\n\n"
+        mock += f"from .{interface_name.lower()} import {interface_name}\n\n"
+        mock += f"class {class_name}({interface_name}):\n"
+        mock += f"    \"\"\"\n"
+        mock += f"    Mock implementation of {interface_name}\n"
+        mock += f"    \"\"\"\n\n"
+        
+        # Add constructor
+        mock += f"    def __init__(self):\n"
+        mock += f"        \"\"\"\n"
+        mock += f"        Initialize the mock implementation\n"
+        mock += f"        \"\"\"\n"
+        mock += f"        pass\n\n"
+        
+        # Add methods
+        for method_match in method_matches:
+            method_name = method_match.group(1)
+            params = method_match.group(2)
+            return_type = method_match.group(3)
             
-        # Return the result
-        if task.status == "completed":
-            return task.result
-        else:
-            raise Exception(f"Failed to create mock implementation: {task.error}")
+            # Add method
+            mock += f"    def {method_name}(self, {params}) -> {return_type}:\n"
+            mock += f"        \"\"\"\n"
+            mock += f"        Mock implementation of {method_name}\n"
+            mock += f"        \"\"\"\n"
             
-    def _create_mock_prompt(self, interface: str) -> str:
-        """
-        Create a prompt for generating a mock implementation
-        
-        Args:
-            interface: Interface definition
-            
-        Returns:
-            Prompt string
-        """
-        prompt = "# Create Mock Implementation for Interface\n\n"
-        
-        prompt += "## Interface Definition\n\n"
-        prompt += f"```\n{interface}\n```\n\n"
-        
-        prompt += "## Instructions\n\n"
-        prompt += "Please create a mock implementation for this interface. The mock implementation should:\n\n"
-        prompt += "1. Implement all methods and properties defined in the interface\n"
-        prompt += "2. Return sensible default values or test data\n"
-        prompt += "3. Include logging to track method calls\n"
-        prompt += "4. Be clearly marked as a mock implementation\n"
-        prompt += "5. Include usage examples\n\n"
-        prompt += "The mock implementation should be usable by dependent components during development.\n"
-        
-        return prompt
-        
-    def generate_validation_contract(self, interface: str) -> str:
-        """
-        Generate validation contract for an interface
-        
-        Args:
-            interface: Interface definition
-            
-        Returns:
-            Validation contract
-        """
-        if not self.codegen_agent:
-            raise ValueError("Codegen agent not initialized. Call initialize() first.")
-            
-        # Create a prompt for the validation contract
-        prompt = self._create_validation_prompt(interface)
-        
-        # Execute the task using the Codegen SDK
-        task = self.codegen_agent.run(prompt=prompt)
-        
-        # Wait for the task to complete
-        while task.status not in ["completed", "failed", "cancelled"]:
-            # Refresh the task status
-            task.refresh()
-            
-            # Wait a bit before checking again
-            import time
-            time.sleep(5)
-            
-        # Return the result
-        if task.status == "completed":
-            return task.result
-        else:
-            raise Exception(f"Failed to generate validation contract: {task.error}")
-            
-    def _create_validation_prompt(self, interface: str) -> str:
-        """
-        Create a prompt for generating a validation contract
-        
-        Args:
-            interface: Interface definition
-            
-        Returns:
-            Prompt string
-        """
-        prompt = "# Generate Validation Contract for Interface\n\n"
-        
-        prompt += "## Interface Definition\n\n"
-        prompt += f"```\n{interface}\n```\n\n"
-        
-        prompt += "## Instructions\n\n"
-        prompt += "Please generate a validation contract for this interface. The validation contract should:\n\n"
-        prompt += "1. Define validation rules for all method parameters\n"
-        prompt += "2. Define validation rules for all return values\n"
-        prompt += "3. Include pre-conditions and post-conditions for each method\n"
-        prompt += "4. Provide helper functions for validation\n"
-        prompt += "5. Include usage examples\n\n"
-        prompt += "The validation contract should help ensure that implementations of the interface behave correctly.\n"
-        
-        return prompt
-        
-    def generate_data_format_standards(self, interface: str) -> str:
-        """
-        Generate data format standards for an interface
-        
-        Args:
-            interface: Interface definition
-            
-        Returns:
-            Data format standards
-        """
-        if not self.codegen_agent:
-            raise ValueError("Codegen agent not initialized. Call initialize() first.")
-            
-        # Create a prompt for the data format standards
-        prompt = self._create_data_format_prompt(interface)
-        
-        # Execute the task using the Codegen SDK
-        task = self.codegen_agent.run(prompt=prompt)
-        
-        # Wait for the task to complete
-        while task.status not in ["completed", "failed", "cancelled"]:
-            # Refresh the task status
-            task.refresh()
-            
-            # Wait a bit before checking again
-            import time
-            time.sleep(5)
-            
-        # Return the result
-        if task.status == "completed":
-            return task.result
-        else:
-            raise Exception(f"Failed to generate data format standards: {task.error}")
-            
-    def _create_data_format_prompt(self, interface: str) -> str:
-        """
-        Create a prompt for generating data format standards
-        
-        Args:
-            interface: Interface definition
-            
-        Returns:
-            Prompt string
-        """
-        prompt = "# Generate Data Format Standards for Interface\n\n"
-        
-        prompt += "## Interface Definition\n\n"
-        prompt += f"```\n{interface}\n```\n\n"
-        
-        prompt += "## Instructions\n\n"
-        prompt += "Please generate data format and structure standards for this interface. The standards should:\n\n"
-        prompt += "1. Define the format and structure of all data passed to and from the interface\n"
-        prompt += "2. Specify serialization and deserialization rules\n"
-        prompt += "3. Define validation rules for data formats\n"
-        prompt += "4. Include examples of valid and invalid data\n"
-        prompt += "5. Provide helper functions for data conversion\n\n"
-        prompt += "The data format standards should help ensure consistent data handling across components.\n"
-        
-        return prompt
-        
-    def generate_api_contract(self, interface: str) -> str:
-        """
-        Generate API contract for an interface
-        
-        Args:
-            interface: Interface definition
-            
-        Returns:
-            API contract
-        """
-        if not self.codegen_agent:
-            raise ValueError("Codegen agent not initialized. Call initialize() first.")
-            
-        # Create a prompt for the API contract
-        prompt = self._create_api_contract_prompt(interface)
-        
-        # Execute the task using the Codegen SDK
-        task = self.codegen_agent.run(prompt=prompt)
-        
-        # Wait for the task to complete
-        while task.status not in ["completed", "failed", "cancelled"]:
-            # Refresh the task status
-            task.refresh()
-            
-            # Wait a bit before checking again
-            import time
-            time.sleep(5)
-            
-        # Return the result
-        if task.status == "completed":
-            return task.result
-        else:
-            raise Exception(f"Failed to generate API contract: {task.error}")
-            
-    def _create_api_contract_prompt(self, interface: str) -> str:
-        """
-        Create a prompt for generating an API contract
-        
-        Args:
-            interface: Interface definition
-            
-        Returns:
-            Prompt string
-        """
-        prompt = "# Generate API Contract for Interface\n\n"
-        
-        prompt += "## Interface Definition\n\n"
-        prompt += f"```\n{interface}\n```\n\n"
-        
-        prompt += "## Instructions\n\n"
-        prompt += "Please generate a comprehensive API contract for this interface. The API contract should:\n\n"
-        prompt += "1. Document all methods and properties in the interface\n"
-        prompt += "2. Specify the behavior of each method, including edge cases\n"
-        prompt += "3. Define error handling and exception behavior\n"
-        prompt += "4. Include usage examples for each method\n"
-        prompt += "5. Specify performance expectations and constraints\n\n"
-        prompt += "The API contract should serve as a complete reference for users of the interface.\n"
-        
-        return prompt
-        
-    def extract_interface_from_implementation(self, implementation: str) -> str:
-        """
-        Extract an interface from an implementation
-        
-        Args:
-            implementation: Implementation code
-            
-        Returns:
-            Interface definition
-        """
-        if not self.codegen_agent:
-            raise ValueError("Codegen agent not initialized. Call initialize() first.")
-            
-        # Create a prompt for extracting the interface
-        prompt = self._create_extraction_prompt(implementation)
-        
-        # Execute the task using the Codegen SDK
-        task = self.codegen_agent.run(prompt=prompt)
-        
-        # Wait for the task to complete
-        while task.status not in ["completed", "failed", "cancelled"]:
-            # Refresh the task status
-            task.refresh()
-            
-            # Wait a bit before checking again
-            import time
-            time.sleep(5)
-            
-        # Return the result
-        if task.status == "completed":
-            return task.result
-        else:
-            raise Exception(f"Failed to extract interface: {task.error}")
-            
-    def _create_extraction_prompt(self, implementation: str) -> str:
-        """
-        Create a prompt for extracting an interface
-        
-        Args:
-            implementation: Implementation code
-            
-        Returns:
-            Prompt string
-        """
-        prompt = "# Extract Interface from Implementation\n\n"
-        
-        prompt += "## Implementation\n\n"
-        prompt += f"```\n{implementation}\n```\n\n"
-        
-        prompt += "## Instructions\n\n"
-        prompt += "Please extract a clean interface from this implementation. The interface should:\n\n"
-        prompt += "1. Include all public methods and properties\n"
-        prompt += "2. Exclude implementation details\n"
-        prompt += "3. Include method signatures with parameter and return types\n"
-        prompt += "4. Include documentation for each method and property\n"
-        prompt += "5. Follow interface naming conventions\n\n"
-        prompt += "The interface should capture the essential functionality without exposing implementation details.\n"
-        
-        return prompt
+            # Add return statement based on return type
+            if return_type == "None":
+                mock += f"        return None\n\n"
+            elif return_type == "bool":
+                mock += f"        return True\n\n"
+            elif return_type == "int":
+                mock += f"        return 0\n\n"
+            elif return_type == "float":
+                mock += f"        return 0.0\n\n"
+            elif return_type == "str":
+                mock += f"        return \"\"\n\n"
+            elif return_type == "List" or return_type.startswith("List["):
+                mock += f"        return []\n\n"
+            elif return_type == "Dict" or return_type.startswith("Dict["):
+                mock += f"        return {{}}\n\n"
+            elif return_type == "Any":
+                mock += f"        return None\n\n"
+            else:
+                mock += f"        return None  # Replace with appropriate mock return value\n\n"
+                
+        return mock
 

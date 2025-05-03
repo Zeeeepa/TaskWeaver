@@ -7,6 +7,7 @@ import os
 import sys
 import json
 import logging
+import time
 from typing import Dict, List, Optional, Any, Union, Tuple
 
 from injector import inject
@@ -102,7 +103,10 @@ class CodegenIntegration:
             self.logger.info("Codegen integration initialized successfully")
             
             # Initialize Codegen agent
-            self.codegen_agent = Agent(org_id=codegen_org_id, token=codegen_token)
+            self.codegen_agent = Agent(
+                token=codegen_token,
+                org_id=codegen_org_id
+            )
             
             # Initialize new components with Codegen credentials
             self.concurrent_execution_engine.initialize(codegen_org_id, codegen_token)
@@ -605,3 +609,34 @@ class CodegenIntegration:
             return task.result
         else:
             return None
+        
+    def run_task(self, prompt: str) -> Dict[str, Any]:
+        """
+        Run a Codegen task with the given prompt and wait for the result.
+        
+        Args:
+            prompt: The prompt to send to Codegen
+            
+        Returns:
+            Dictionary containing the task result or error information
+        """
+        try:
+            # Create a task
+            task = self.run_codegen_task(prompt)
+            
+            # Monitor task status
+            while self.get_task_status(task) not in ["completed", "failed", "cancelled"]:
+                task.refresh()
+                self.logger.debug(f"Task status: {task.status}")
+                time.sleep(5)
+            
+            # Handle task completion or failure
+            if self.get_task_status(task) == "completed":
+                self.logger.info(f"Task completed successfully")
+                return {"success": True, "result": self.get_task_result(task)}
+            else:
+                self.logger.error(f"Task failed: {task.status}")
+                return {"success": False, "error": f"Task failed: {task.status}"}
+        except Exception as e:
+            self.logger.exception(f"Error running Codegen task: {str(e)}")
+            return {"success": False, "error": str(e)}

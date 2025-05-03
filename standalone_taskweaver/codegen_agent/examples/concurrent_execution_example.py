@@ -14,9 +14,10 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent.parent.parent))
 
 from standalone_taskweaver.codegen_agent.requirements_manager import RequirementsManager, AtomicTask, DependencyGraph
-from standalone_taskweaver.codegen_agent.concurrent_execution import ConcurrentExecutionEngine
+from standalone_taskweaver.codegen_agent.concurrent_execution import ConcurrentExecutionEngine, TaskStatus, TaskResult
 from standalone_taskweaver.codegen_agent.interface_generator import InterfaceGenerator
 from standalone_taskweaver.codegen_agent.query_generation import QueryGenerationFramework
+from standalone_taskweaver.memory import Memory
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -169,9 +170,11 @@ async def main():
         print(result[:500] + "..." if len(result) > 500 else result)
         print()
         
-    # Execute tasks concurrently
-    concurrent_execution_engine = ConcurrentExecutionEngine(None, None, None, max_concurrency=2)
-    concurrent_execution_engine.initialize(org_id, token)
+    # Create a memory instance
+    memory = Memory()
+    
+    # Initialize execution engine
+    concurrent_execution_engine = ConcurrentExecutionEngine(None, None, None, memory, max_concurrency=2)
     
     print("Executing tasks concurrently...")
     phase_1_tasks = [task for task in tasks if task.phase == 1]
@@ -189,4 +192,3 @@ async def main():
         
 if __name__ == "__main__":
     asyncio.run(main())
-

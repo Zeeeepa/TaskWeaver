@@ -48,14 +48,14 @@ class TaskWeaverUIEnhanced:
         # Initialize components
         self.requirements_manager = RequirementsManager(app, config, logger)
         self.context_manager = ConcurrentContextManager(app, config, logger, self.memory)
-        self.execution_engine = ConcurrentExecutionEngine(app, config, logger)
+        self.execution_engine = ConcurrentExecutionEngine(app, config, logger, self.memory)
         self.codegen_agent = CodegenAgent(
             app, 
             config, 
             logger, 
-            self.requirements_manager,
-            self.context_manager,
-            self.execution_engine
+            requirements_manager=self.requirements_manager,
+            context_manager=self.context_manager,
+            execution_engine=self.execution_engine,
         )
         
         # Chat history

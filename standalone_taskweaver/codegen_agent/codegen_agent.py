@@ -23,6 +23,7 @@ from injector import inject
 from standalone_taskweaver.app.app import TaskWeaverApp
 from standalone_taskweaver.config.config_mgt import AppConfigSource
 from standalone_taskweaver.logging import TelemetryLogger
+from standalone_taskweaver.memory import Memory
 from standalone_taskweaver.codegen_agent.requirements_manager import RequirementsManager, AtomicTask, DependencyGraph
 from standalone_taskweaver.codegen_agent.concurrent_execution import ConcurrentExecutionEngine, TaskStatus, TaskResult
 from standalone_taskweaver.codegen_agent.concurrent_context_manager import ConcurrentContextManager
@@ -70,15 +71,19 @@ class CodegenAgent:
         requirements_manager: Optional[RequirementsManager] = None,
         context_manager: Optional[ConcurrentContextManager] = None,
         execution_engine: Optional[ConcurrentExecutionEngine] = None,
+        memory: Optional[Memory] = None,
     ) -> None:
         self.app = app
         self.config = config
         self.logger = logger
         
+        # Create a memory instance if not provided
+        self.memory = memory or Memory()
+        
         # Initialize components
         self.requirements_manager = requirements_manager or RequirementsManager(app, config, logger)
-        self.context_manager = context_manager or ConcurrentContextManager(app, config, logger)
-        self.execution_engine = execution_engine or ConcurrentExecutionEngine(app, config, logger)
+        self.context_manager = context_manager or ConcurrentContextManager(app, config, logger, self.memory)
+        self.execution_engine = execution_engine or ConcurrentExecutionEngine(app, config, logger, self.memory)
         
         # Codegen client
         self.codegen_client = None

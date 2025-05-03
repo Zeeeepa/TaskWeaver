@@ -90,8 +90,12 @@ class BidirectionalContext:
                 "variables": session.metadata.variables,
             }
         
-        # Get memory information
-        memory_data = self.memory.get_all()
+        # Get memory information - create a dictionary representation of memory
+        memory_data = {
+            "rounds": [round.__dict__ for round in self.memory.get_rounds()],
+            "shared_memory": {k.value: [entry.__dict__ for entry in v] 
+                             for k, v in self.memory.shared_memory.items()}
+        }
         
         # Create TaskWeaver context
         self.taskweaver_context = {
@@ -317,4 +321,3 @@ class BidirectionalContext:
         }
         
         return taskweaver_context
-

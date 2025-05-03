@@ -1,650 +1,755 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TaskWeaver UI</title>
+    <title>TaskWeaver with Codegen</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f5f5f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
         }
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
         }
-        .header {
-            background-color: #333;
-            color: white;
-            padding: 20px;
-            text-align: center;
-        }
-        .section {
-            background-color: white;
-            border-radius: 5px;
-            padding: 20px;
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
             margin-bottom: 20px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            background-color: #1e1e1e;
+            border: 1px solid #333;
         }
-        .form-group {
+        .card-header {
+            background-color: #252525;
+            border-bottom: 1px solid #333;
+            border-radius: 10px 10px 0 0 !important;
+            color: #e0e0e0;
+        }
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            padding: 15px;
+            background-color: #1e1e1e;
+            border-radius: 0 0 10px 10px;
+        }
+        .message {
             margin-bottom: 15px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input[type="text"], textarea, select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
             padding: 10px 15px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+        .user-message {
+            background-color: #2d3748;
+            margin-left: auto;
+            color: #e0e0e0;
+        }
+        .bot-message {
+            background-color: #1a365d;
+            margin-right: auto;
+            color: #e0e0e0;
+        }
+        .input-group {
+            margin-top: 20px;
+        }
+        .nav-tabs {
+            border-bottom: 1px solid #333;
+        }
+        .nav-tabs .nav-link {
+            color: #e0e0e0;
             border: none;
-            border-radius: 4px;
-            cursor: pointer;
+            border-bottom: 2px solid transparent;
         }
-        button:hover {
-            background-color: #45a049;
+        .nav-tabs .nav-link.active {
+            color: #3182ce;
+            background-color: transparent;
+            border-bottom: 2px solid #3182ce;
         }
-        .status {
-            padding: 10px;
-            margin-top: 10px;
-            border-radius: 4px;
-        }
-        .success {
-            background-color: #dff0d8;
-            color: #3c763d;
-        }
-        .error {
-            background-color: #f2dede;
-            color: #a94442;
-        }
-        .tabs {
-            display: flex;
-            margin-bottom: 20px;
-        }
-        .tab {
-            padding: 10px 20px;
-            background-color: #ddd;
-            cursor: pointer;
-            border-radius: 5px 5px 0 0;
-            margin-right: 5px;
-        }
-        .tab.active {
-            background-color: white;
-            border-bottom: 2px solid #4CAF50;
+        .nav-tabs .nav-link:hover {
+            border-color: transparent;
+            border-bottom: 2px solid #3182ce;
         }
         .tab-content {
-            display: none;
+            padding: 20px 0;
         }
-        .tab-content.active {
-            display: block;
+        .btn-primary {
+            background-color: #3182ce;
+            border-color: #3182ce;
         }
-        .step {
-            background-color: #f9f9f9;
+        .btn-primary:hover {
+            background-color: #2c5282;
+            border-color: #2c5282;
+        }
+        .form-control {
+            background-color: #2d3748;
+            border-color: #4a5568;
+            color: #e0e0e0;
+        }
+        .form-control:focus {
+            background-color: #2d3748;
+            border-color: #3182ce;
+            color: #e0e0e0;
+            box-shadow: 0 0 0 0.25rem rgba(49, 130, 206, 0.25);
+        }
+        pre {
+            background-color: #2d3748;
+            color: #e0e0e0;
             padding: 10px;
-            margin-bottom: 10px;
-            border-radius: 4px;
-            border-left: 3px solid #4CAF50;
+            border-radius: 5px;
+            overflow-x: auto;
         }
-        .step-title {
+        code {
+            color: #63b3ed;
+        }
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
             font-weight: bold;
         }
-        .step-description {
-            margin-top: 5px;
-            color: #666;
+        .status-success {
+            background-color: #2f855a;
+            color: white;
         }
-        .step-status {
-            margin-top: 5px;
-            font-size: 0.9em;
+        .status-error {
+            background-color: #c53030;
+            color: white;
         }
-        .step-status.completed {
-            color: #3c763d;
+        .status-warning {
+            background-color: #d69e2e;
+            color: white;
         }
-        .step-status.failed {
-            color: #a94442;
-        }
-        .step-status.pending {
-            color: #8a6d3b;
-        }
-        .step-status.running {
-            color: #31708f;
+        .status-info {
+            background-color: #3182ce;
+            color: white;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>TaskWeaver UI with Codegen Integration</h1>
-    </div>
-    
     <div class="container">
-        <div class="tabs">
-            <div class="tab active" data-tab="initialization">Initialization</div>
-            <div class="tab" data-tab="project">Project</div>
-            <div class="tab" data-tab="deployment">Deployment</div>
-            <div class="tab" data-tab="status">Status</div>
-        </div>
+        <h1 class="text-center mb-4">TaskWeaver with Codegen</h1>
         
-        <div class="tab-content active" id="initialization">
-            <div class="section">
-                <h2>Initialize Codegen Integration</h2>
-                <div class="form-group">
-                    <label for="github-token">GitHub Token:</label>
-                    <input type="text" id="github-token" placeholder="Enter GitHub token">
-                </div>
-                <div class="form-group">
-                    <label for="codegen-token">Codegen Token:</label>
-                    <input type="text" id="codegen-token" placeholder="Enter Codegen token">
-                </div>
-                <div class="form-group">
-                    <label for="ngrok-token">Ngrok Token:</label>
-                    <input type="text" id="ngrok-token" placeholder="Enter Ngrok token">
-                </div>
-                <div class="form-group">
-                    <label for="codegen-org-id">Codegen Organization ID:</label>
-                    <input type="text" id="codegen-org-id" placeholder="Enter Codegen organization ID">
-                </div>
-                <button id="initialize-btn">Initialize</button>
-                <div id="initialize-status" class="status"></div>
-            </div>
-            
-            <div class="section">
-                <h2>Repository Selection</h2>
-                <div class="form-group">
-                    <label for="repository">Select Repository:</label>
-                    <select id="repository" disabled>
-                        <option value="">Select a repository</option>
-                    </select>
-                </div>
-                <button id="set-repository-btn" disabled>Set Repository</button>
-                <div id="repository-status" class="status"></div>
-            </div>
-        </div>
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="chat-tab" data-bs-toggle="tab" data-bs-target="#chat" type="button" role="tab" aria-controls="chat" aria-selected="true">Chat</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="project-tab" data-bs-toggle="tab" data-bs-target="#project" type="button" role="tab" aria-controls="project" aria-selected="false">Project</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="deployment-tab" data-bs-toggle="tab" data-bs-target="#deployment" type="button" role="tab" aria-controls="deployment" aria-selected="false">Deployment</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings" type="button" role="tab" aria-controls="settings" aria-selected="false">Settings</button>
+            </li>
+        </ul>
         
-        <div class="tab-content" id="project">
-            <div class="section">
-                <h2>Project Context</h2>
-                <div class="form-group">
-                    <label for="project-name">Project Name:</label>
-                    <input type="text" id="project-name" placeholder="Enter project name">
+        <div class="tab-content" id="myTabContent">
+            <!-- Chat Tab -->
+            <div class="tab-pane fade show active" id="chat" role="tabpanel" aria-labelledby="chat-tab">
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Chat with TaskWeaver</h5>
+                                <button class="btn btn-sm btn-outline-secondary" id="clearChat">Clear Chat</button>
+                            </div>
+                            <div class="chat-container" id="chatContainer">
+                                <div class="bot-message message">
+                                    <p>Hello! I'm TaskWeaver, your AI assistant. How can I help you today?</p>
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="userInput" placeholder="Type your message here...">
+                                    <button class="btn btn-primary" id="sendButton">Send</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="project-description">Project Description:</label>
-                    <textarea id="project-description" rows="3" placeholder="Enter project description"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="requirements-text">Requirements:</label>
-                    <textarea id="requirements-text" rows="10" placeholder="Enter project requirements"></textarea>
-                </div>
-                <button id="set-project-btn">Set Project Context</button>
-                <div id="project-status" class="status"></div>
-            </div>
-        </div>
-        
-        <div class="tab-content" id="deployment">
-            <div class="section">
-                <h2>Deployment Plan</h2>
-                <div class="form-group">
-                    <label for="deployment-plan">Deployment Plan:</label>
-                    <textarea id="deployment-plan" rows="10" placeholder="Enter deployment plan"></textarea>
-                </div>
-                <button id="parse-steps-btn">Parse Deployment Steps</button>
-                <div id="parse-status" class="status"></div>
             </div>
             
-            <div class="section">
-                <h2>Deployment Steps</h2>
-                <div id="steps-container"></div>
-                <div class="form-group">
-                    <label for="max-concurrent-steps">Max Concurrent Steps:</label>
-                    <input type="number" id="max-concurrent-steps" value="1" min="1" max="10">
+            <!-- Project Tab -->
+            <div class="tab-pane fade" id="project" role="tabpanel" aria-labelledby="project-tab">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Project Information</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="projectName" class="form-label">Project Name</label>
+                                    <input type="text" class="form-control" id="projectName" placeholder="Enter project name">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="projectDescription" class="form-label">Project Description</label>
+                                    <textarea class="form-control" id="projectDescription" rows="3" placeholder="Enter project description"></textarea>
+                                </div>
+                                <button class="btn btn-primary" id="saveProjectInfo">Save Project Info</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Requirements</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="requirements" class="form-label">Project Requirements</label>
+                                    <textarea class="form-control" id="requirements" rows="10" placeholder="Enter project requirements"></textarea>
+                                </div>
+                                <button class="btn btn-primary" id="saveRequirements">Save Requirements</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <button id="execute-steps-btn" disabled>Execute All Steps</button>
-                <button id="cancel-steps-btn" disabled>Cancel Execution</button>
-                <div id="execution-status" class="status"></div>
             </div>
             
-            <div class="section">
-                <h2>Single Step Execution</h2>
-                <div class="form-group">
-                    <label for="step-id">Step ID:</label>
-                    <input type="text" id="step-id" placeholder="Enter step ID">
+            <!-- Deployment Tab -->
+            <div class="tab-pane fade" id="deployment" role="tabpanel" aria-labelledby="deployment-tab">
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Deployment Plan</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="deploymentPlan" class="form-label">Deployment Steps</label>
+                                    <textarea class="form-control" id="deploymentPlan" rows="10" placeholder="Enter deployment steps"></textarea>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <button class="btn btn-primary" id="parseDeploymentSteps">Parse Steps</button>
+                                    <button class="btn btn-success" id="executeDeploymentSteps">Execute Steps</button>
+                                    <button class="btn btn-danger" id="cancelDeployment">Cancel Execution</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="step-title">Step Title:</label>
-                    <input type="text" id="step-title" placeholder="Enter step title">
+                
+                <div class="row mt-4">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Deployment Status</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <h6>Integration Status</h6>
+                                    <div id="integrationStatus">
+                                        <div class="status-badge status-info">Checking status...</div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <h6>Weaver Status</h6>
+                                    <div id="weaverStatus">
+                                        <div class="status-badge status-info">Checking status...</div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <h6>Step Results</h6>
+                                    <div id="stepResults">
+                                        <div class="status-badge status-info">No steps executed yet</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="step-description">Step Description:</label>
-                    <textarea id="step-description" rows="5" placeholder="Enter step description"></textarea>
-                </div>
-                <button id="execute-single-step-btn">Execute Single Step</button>
-                <div id="single-step-status" class="status"></div>
-            </div>
-        </div>
-        
-        <div class="tab-content" id="status">
-            <div class="section">
-                <h2>Integration Status</h2>
-                <button id="refresh-status-btn">Refresh Status</button>
-                <div id="integration-status" class="status"></div>
             </div>
             
-            <div class="section">
-                <h2>Weaver Status</h2>
-                <button id="refresh-weaver-status-btn">Refresh Weaver Status</button>
-                <div id="weaver-status" class="status"></div>
-            </div>
-            
-            <div class="section">
-                <h2>Step Results</h2>
-                <button id="refresh-results-btn">Refresh Results</button>
-                <div id="step-results" class="status"></div>
+            <!-- Settings Tab -->
+            <div class="tab-pane fade" id="settings" role="tabpanel" aria-labelledby="settings-tab">
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">API Credentials</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="githubToken" class="form-label">GitHub Token</label>
+                                    <input type="password" class="form-control" id="githubToken" placeholder="Enter GitHub token">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="codegenToken" class="form-label">Codegen Token</label>
+                                    <input type="password" class="form-control" id="codegenToken" placeholder="Enter Codegen token">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="ngrokToken" class="form-label">ngrok Token</label>
+                                    <input type="password" class="form-control" id="ngrokToken" placeholder="Enter ngrok token">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="codegenOrgId" class="form-label">Codegen Organization ID</label>
+                                    <input type="text" class="form-control" id="codegenOrgId" placeholder="Enter Codegen organization ID">
+                                </div>
+                                <button class="btn btn-primary" id="saveCredentials">Save Credentials</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">GitHub Repository</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="repositorySelect" class="form-label">Select Repository</label>
+                                    <select class="form-select" id="repositorySelect">
+                                        <option value="">Select a repository</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-primary" id="setRepository">Set Repository</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Tab switching
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                
-                tab.classList.add('active');
-                document.getElementById(tab.getAttribute('data-tab')).classList.add('active');
-            });
-        });
-        
-        // Initialize Codegen integration
-        document.getElementById('initialize-btn').addEventListener('click', async () => {
-            const githubToken = document.getElementById('github-token').value;
-            const codegenToken = document.getElementById('codegen-token').value;
-            const ngrokToken = document.getElementById('ngrok-token').value;
-            const codegenOrgId = document.getElementById('codegen-org-id').value;
+        document.addEventListener('DOMContentLoaded', function() {
+            // Chat functionality
+            const chatContainer = document.getElementById('chatContainer');
+            const userInput = document.getElementById('userInput');
+            const sendButton = document.getElementById('sendButton');
+            const clearChatButton = document.getElementById('clearChat');
             
-            if (!githubToken || !codegenToken || !ngrokToken || !codegenOrgId) {
-                document.getElementById('initialize-status').textContent = 'Please fill in all fields';
-                document.getElementById('initialize-status').className = 'status error';
-                return;
+            // Function to add a message to the chat
+            function addMessage(message, isUser = false) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = isUser ? 'user-message message' : 'bot-message message';
+                messageDiv.innerHTML = `<p>${message}</p>`;
+                chatContainer.appendChild(messageDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
             }
             
-            try {
-                const response = await fetch('/api/codegen/initialize', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        github_token: githubToken,
-                        codegen_token: codegenToken,
-                        ngrok_token: ngrokToken,
-                        codegen_org_id: codegenOrgId
+            // Send message when button is clicked
+            sendButton.addEventListener('click', function() {
+                const message = userInput.value.trim();
+                if (message) {
+                    addMessage(message, true);
+                    userInput.value = '';
+                    
+                    // Send message to backend
+                    fetch('/api/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ message: message }),
                     })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    document.getElementById('initialize-status').textContent = 'Initialization successful';
-                    document.getElementById('initialize-status').className = 'status success';
-                    
-                    // Enable repository selection
-                    document.getElementById('repository').disabled = false;
-                    document.getElementById('set-repository-btn').disabled = false;
-                    
-                    // Load repositories
-                    loadRepositories();
-                } else {
-                    document.getElementById('initialize-status').textContent = 'Initialization failed: ' + (data.error || 'Unknown error');
-                    document.getElementById('initialize-status').className = 'status error';
-                }
-            } catch (error) {
-                document.getElementById('initialize-status').textContent = 'Error: ' + error.message;
-                document.getElementById('initialize-status').className = 'status error';
-            }
-        });
-        
-        // Load repositories
-        async function loadRepositories() {
-            try {
-                const response = await fetch('/api/codegen/repositories');
-                const data = await response.json();
-                
-                if (data.success) {
-                    const repositorySelect = document.getElementById('repository');
-                    repositorySelect.innerHTML = '<option value="">Select a repository</option>';
-                    
-                    data.repositories.forEach(repo => {
-                        const option = document.createElement('option');
-                        option.value = repo.name;
-                        option.textContent = repo.name;
-                        repositorySelect.appendChild(option);
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            addMessage(data.response);
+                        } else {
+                            addMessage('Error: ' + data.error);
+                        }
+                    })
+                    .catch(error => {
+                        addMessage('Error: Could not connect to the server.');
+                        console.error('Error:', error);
                     });
-                    
-                    // Set active repository if any
-                    if (data.active_repository) {
-                        repositorySelect.value = data.active_repository;
-                    }
                 }
-            } catch (error) {
-                console.error('Error loading repositories:', error);
-            }
-        }
-        
-        // Set repository
-        document.getElementById('set-repository-btn').addEventListener('click', async () => {
-            const repository = document.getElementById('repository').value;
-            
-            if (!repository) {
-                document.getElementById('repository-status').textContent = 'Please select a repository';
-                document.getElementById('repository-status').className = 'status error';
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/codegen/repository', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        repo_name: repository
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    document.getElementById('repository-status').textContent = 'Repository set successfully';
-                    document.getElementById('repository-status').className = 'status success';
-                } else {
-                    document.getElementById('repository-status').textContent = 'Failed to set repository: ' + (data.error || 'Unknown error');
-                    document.getElementById('repository-status').className = 'status error';
-                }
-            } catch (error) {
-                document.getElementById('repository-status').textContent = 'Error: ' + error.message;
-                document.getElementById('repository-status').className = 'status error';
-            }
-        });
-        
-        // Set project context
-        document.getElementById('set-project-btn').addEventListener('click', async () => {
-            const projectName = document.getElementById('project-name').value;
-            const projectDescription = document.getElementById('project-description').value;
-            const requirementsText = document.getElementById('requirements-text').value;
-            
-            if (!projectName || !projectDescription || !requirementsText) {
-                document.getElementById('project-status').textContent = 'Please fill in all fields';
-                document.getElementById('project-status').className = 'status error';
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/weaver/project-context', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        project_name: projectName,
-                        project_description: projectDescription,
-                        requirements_text: requirementsText
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    document.getElementById('project-status').textContent = 'Project context set successfully';
-                    document.getElementById('project-status').className = 'status success';
-                } else {
-                    document.getElementById('project-status').textContent = 'Failed to set project context: ' + (data.error || 'Unknown error');
-                    document.getElementById('project-status').className = 'status error';
-                }
-            } catch (error) {
-                document.getElementById('project-status').textContent = 'Error: ' + error.message;
-                document.getElementById('project-status').className = 'status error';
-            }
-        });
-        
-        // Parse deployment steps
-        document.getElementById('parse-steps-btn').addEventListener('click', async () => {
-            const deploymentPlan = document.getElementById('deployment-plan').value;
-            
-            if (!deploymentPlan) {
-                document.getElementById('parse-status').textContent = 'Please enter a deployment plan';
-                document.getElementById('parse-status').className = 'status error';
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/weaver/deployment-steps', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        deployment_plan: deploymentPlan
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    document.getElementById('parse-status').textContent = 'Deployment steps parsed successfully';
-                    document.getElementById('parse-status').className = 'status success';
-                    
-                    // Display steps
-                    displaySteps(data.steps);
-                    
-                    // Enable execute button
-                    document.getElementById('execute-steps-btn').disabled = false;
-                    document.getElementById('cancel-steps-btn').disabled = false;
-                } else {
-                    document.getElementById('parse-status').textContent = 'Failed to parse deployment steps: ' + (data.error || 'Unknown error');
-                    document.getElementById('parse-status').className = 'status error';
-                }
-            } catch (error) {
-                document.getElementById('parse-status').textContent = 'Error: ' + error.message;
-                document.getElementById('parse-status').className = 'status error';
-            }
-        });
-        
-        // Display steps
-        function displaySteps(steps) {
-            const stepsContainer = document.getElementById('steps-container');
-            stepsContainer.innerHTML = '';
-            
-            steps.forEach(step => {
-                const stepElement = document.createElement('div');
-                stepElement.className = 'step';
-                stepElement.innerHTML = `
-                    <div class="step-title">${step.title}</div>
-                    <div class="step-description">${step.description}</div>
-                    <div class="step-status ${step.status}" id="step-status-${step.id}">Status: ${step.status}</div>
-                `;
-                stepsContainer.appendChild(stepElement);
             });
-        }
-        
-        // Execute all steps
-        document.getElementById('execute-steps-btn').addEventListener('click', async () => {
-            const maxConcurrentSteps = document.getElementById('max-concurrent-steps').value;
             
-            try {
-                const response = await fetch('/api/weaver/execute-steps', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        max_concurrent_steps: parseInt(maxConcurrentSteps)
+            // Send message when Enter key is pressed
+            userInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendButton.click();
+                }
+            });
+            
+            // Clear chat
+            clearChatButton.addEventListener('click', function() {
+                chatContainer.innerHTML = '';
+                addMessage('Hello! I\'m TaskWeaver, your AI assistant. How can I help you today?');
+            });
+            
+            // Settings functionality
+            const saveCredentialsButton = document.getElementById('saveCredentials');
+            const githubTokenInput = document.getElementById('githubToken');
+            const codegenTokenInput = document.getElementById('codegenToken');
+            const ngrokTokenInput = document.getElementById('ngrokToken');
+            const codegenOrgIdInput = document.getElementById('codegenOrgId');
+            const repositorySelect = document.getElementById('repositorySelect');
+            const setRepositoryButton = document.getElementById('setRepository');
+            
+            // Save API credentials
+            saveCredentialsButton.addEventListener('click', function() {
+                const githubToken = githubTokenInput.value.trim();
+                const codegenToken = codegenTokenInput.value.trim();
+                const ngrokToken = ngrokTokenInput.value.trim();
+                const codegenOrgId = codegenOrgIdInput.value.trim();
+                
+                if (githubToken && codegenToken && ngrokToken && codegenOrgId) {
+                    fetch('/api/codegen/initialize', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            github_token: githubToken,
+                            codegen_token: codegenToken,
+                            ngrok_token: ngrokToken,
+                            codegen_org_id: codegenOrgId
+                        }),
                     })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    document.getElementById('execution-status').textContent = 'Execution started successfully';
-                    document.getElementById('execution-status').className = 'status success';
-                    
-                    // Start polling for status updates
-                    startStatusPolling();
-                } else {
-                    document.getElementById('execution-status').textContent = 'Failed to start execution: ' + (data.error || 'Unknown error');
-                    document.getElementById('execution-status').className = 'status error';
-                }
-            } catch (error) {
-                document.getElementById('execution-status').textContent = 'Error: ' + error.message;
-                document.getElementById('execution-status').className = 'status error';
-            }
-        });
-        
-        // Cancel execution
-        document.getElementById('cancel-steps-btn').addEventListener('click', async () => {
-            try {
-                const response = await fetch('/api/weaver/cancel', {
-                    method: 'POST'
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    document.getElementById('execution-status').textContent = 'Execution cancelled successfully';
-                    document.getElementById('execution-status').className = 'status success';
-                } else {
-                    document.getElementById('execution-status').textContent = 'Failed to cancel execution: ' + (data.error || 'Unknown error');
-                    document.getElementById('execution-status').className = 'status error';
-                }
-            } catch (error) {
-                document.getElementById('execution-status').textContent = 'Error: ' + error.message;
-                document.getElementById('execution-status').className = 'status error';
-            }
-        });
-        
-        // Execute single step
-        document.getElementById('execute-single-step-btn').addEventListener('click', async () => {
-            const stepId = document.getElementById('step-id').value;
-            const stepTitle = document.getElementById('step-title').value;
-            const stepDescription = document.getElementById('step-description').value;
-            
-            if (!stepId || !stepTitle || !stepDescription) {
-                document.getElementById('single-step-status').textContent = 'Please fill in all fields';
-                document.getElementById('single-step-status').className = 'status error';
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/weaver/execute-step', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        step_id: stepId,
-                        step_title: stepTitle,
-                        step_description: stepDescription
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Credentials saved successfully!');
+                            loadRepositories();
+                            updateStatus();
+                        } else {
+                            alert('Error: ' + (data.error || 'Could not save credentials.'));
+                        }
                     })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    document.getElementById('single-step-status').textContent = 'Step execution started successfully';
-                    document.getElementById('single-step-status').className = 'status success';
+                    .catch(error => {
+                        alert('Error: Could not connect to the server.');
+                        console.error('Error:', error);
+                    });
                 } else {
-                    document.getElementById('single-step-status').textContent = 'Failed to execute step: ' + (data.error || 'Unknown error');
-                    document.getElementById('single-step-status').className = 'status error';
+                    alert('Please fill in all credential fields.');
                 }
-            } catch (error) {
-                document.getElementById('single-step-status').textContent = 'Error: ' + error.message;
-                document.getElementById('single-step-status').className = 'status error';
-            }
-        });
-        
-        // Refresh status
-        document.getElementById('refresh-status-btn').addEventListener('click', async () => {
-            try {
-                const response = await fetch('/api/codegen/status');
-                const data = await response.json();
-                
-                document.getElementById('integration-status').textContent = JSON.stringify(data, null, 2);
-                document.getElementById('integration-status').className = 'status';
-            } catch (error) {
-                document.getElementById('integration-status').textContent = 'Error: ' + error.message;
-                document.getElementById('integration-status').className = 'status error';
-            }
-        });
-        
-        // Refresh weaver status
-        document.getElementById('refresh-weaver-status-btn').addEventListener('click', async () => {
-            try {
-                const response = await fetch('/api/weaver/status');
-                const data = await response.json();
-                
-                document.getElementById('weaver-status').textContent = JSON.stringify(data, null, 2);
-                document.getElementById('weaver-status').className = 'status';
-            } catch (error) {
-                document.getElementById('weaver-status').textContent = 'Error: ' + error.message;
-                document.getElementById('weaver-status').className = 'status error';
-            }
-        });
-        
-        // Refresh results
-        document.getElementById('refresh-results-btn').addEventListener('click', async () => {
-            try {
-                const response = await fetch('/api/weaver/steps/results');
-                const data = await response.json();
-                
-                document.getElementById('step-results').textContent = JSON.stringify(data, null, 2);
-                document.getElementById('step-results').className = 'status';
-            } catch (error) {
-                document.getElementById('step-results').textContent = 'Error: ' + error.message;
-                document.getElementById('step-results').className = 'status error';
-            }
-        });
-        
-        // Status polling
-        let pollingInterval;
-        
-        function startStatusPolling() {
-            // Clear any existing polling
-            if (pollingInterval) {
-                clearInterval(pollingInterval);
-            }
+            });
             
-            // Poll every 5 seconds
-            pollingInterval = setInterval(async () => {
-                try {
-                    const response = await fetch('/api/weaver/steps/results');
-                    const data = await response.json();
-                    
+            // Load repositories
+            function loadRepositories() {
+                fetch('/api/codegen/repositories')
+                .then(response => response.json())
+                .then(data => {
                     if (data.success) {
-                        // Update step statuses
-                        for (const stepId in data.results) {
-                            const statusElement = document.getElementById(`step-status-${stepId}`);
-                            if (statusElement) {
-                                const result = data.results[stepId];
-                                statusElement.textContent = `Status: ${result.status}`;
-                                statusElement.className = `step-status ${result.status}`;
+                        repositorySelect.innerHTML = '<option value="">Select a repository</option>';
+                        data.repositories.forEach(repo => {
+                            const option = document.createElement('option');
+                            option.value = repo.name;
+                            option.textContent = repo.name;
+                            if (data.active_repository && data.active_repository === repo.name) {
+                                option.selected = true;
+                            }
+                            repositorySelect.appendChild(option);
+                        });
+                    } else {
+                        console.error('Error loading repositories:', data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            }
+            
+            // Set repository
+            setRepositoryButton.addEventListener('click', function() {
+                const repoName = repositorySelect.value;
+                if (repoName) {
+                    fetch('/api/codegen/repository', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ repo_name: repoName }),
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Repository set successfully!');
+                            updateStatus();
+                        } else {
+                            alert('Error: ' + (data.error || 'Could not set repository.'));
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error: Could not connect to the server.');
+                        console.error('Error:', error);
+                    });
+                } else {
+                    alert('Please select a repository.');
+                }
+            });
+            
+            // Project functionality
+            const saveProjectInfoButton = document.getElementById('saveProjectInfo');
+            const projectNameInput = document.getElementById('projectName');
+            const projectDescriptionInput = document.getElementById('projectDescription');
+            const saveRequirementsButton = document.getElementById('saveRequirements');
+            const requirementsInput = document.getElementById('requirements');
+            
+            // Save project info
+            saveProjectInfoButton.addEventListener('click', function() {
+                const projectName = projectNameInput.value.trim();
+                const projectDescription = projectDescriptionInput.value.trim();
+                
+                if (projectName && projectDescription) {
+                    // Store project info in local storage for now
+                    localStorage.setItem('projectName', projectName);
+                    localStorage.setItem('projectDescription', projectDescription);
+                    alert('Project information saved!');
+                } else {
+                    alert('Please fill in all project information fields.');
+                }
+            });
+            
+            // Save requirements
+            saveRequirementsButton.addEventListener('click', function() {
+                const requirements = requirementsInput.value.trim();
+                
+                if (requirements) {
+                    fetch('/api/codegen/requirements', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ requirements: requirements }),
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Requirements saved successfully!');
+                        } else {
+                            alert('Error: ' + (data.error || 'Could not save requirements.'));
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error: Could not connect to the server.');
+                        console.error('Error:', error);
+                    });
+                } else {
+                    alert('Please enter project requirements.');
+                }
+            });
+            
+            // Deployment functionality
+            const parseDeploymentStepsButton = document.getElementById('parseDeploymentSteps');
+            const executeDeploymentStepsButton = document.getElementById('executeDeploymentSteps');
+            const cancelDeploymentButton = document.getElementById('cancelDeployment');
+            const deploymentPlanInput = document.getElementById('deploymentPlan');
+            const integrationStatusDiv = document.getElementById('integrationStatus');
+            const weaverStatusDiv = document.getElementById('weaverStatus');
+            const stepResultsDiv = document.getElementById('stepResults');
+            
+            // Parse deployment steps
+            parseDeploymentStepsButton.addEventListener('click', function() {
+                const deploymentPlan = deploymentPlanInput.value.trim();
+                
+                if (deploymentPlan) {
+                    fetch('/api/weaver/deployment-steps', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ deployment_plan: deploymentPlan }),
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Deployment steps parsed successfully!');
+                            // Display parsed steps
+                            let stepsHtml = '<ul class="list-group">';
+                            data.steps.forEach(step => {
+                                stepsHtml += `<li class="list-group-item bg-dark text-light">${step.title}</li>`;
+                            });
+                            stepsHtml += '</ul>';
+                            stepResultsDiv.innerHTML = stepsHtml;
+                        } else {
+                            alert('Error: ' + (data.error || 'Could not parse deployment steps.'));
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error: Could not connect to the server.');
+                        console.error('Error:', error);
+                    });
+                } else {
+                    alert('Please enter deployment steps.');
+                }
+            });
+            
+            // Execute deployment steps
+            executeDeploymentStepsButton.addEventListener('click', function() {
+                fetch('/api/weaver/execute-steps', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ max_concurrent_steps: 1 }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Deployment execution started!');
+                        // Start polling for status
+                        pollStepResults();
+                    } else {
+                        alert('Error: ' + (data.error || 'Could not execute deployment steps.'));
+                    }
+                })
+                .catch(error => {
+                    alert('Error: Could not connect to the server.');
+                    console.error('Error:', error);
+                });
+            });
+            
+            // Cancel deployment
+            cancelDeploymentButton.addEventListener('click', function() {
+                fetch('/api/weaver/cancel', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({}),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Deployment cancelled!');
+                    } else {
+                        alert('Error: ' + (data.error || 'Could not cancel deployment.'));
+                    }
+                })
+                .catch(error => {
+                    alert('Error: Could not connect to the server.');
+                    console.error('Error:', error);
+                });
+            });
+            
+            // Poll for step results
+            function pollStepResults() {
+                fetch('/api/weaver/steps/results')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let resultsHtml = '<ul class="list-group">';
+                        for (const [stepId, result] of Object.entries(data.results)) {
+                            let statusClass = '';
+                            switch (result.status) {
+                                case 'COMPLETED':
+                                    statusClass = 'bg-success';
+                                    break;
+                                case 'FAILED':
+                                    statusClass = 'bg-danger';
+                                    break;
+                                case 'RUNNING':
+                                    statusClass = 'bg-primary';
+                                    break;
+                                default:
+                                    statusClass = 'bg-secondary';
+                            }
+                            resultsHtml += `
+                                <li class="list-group-item ${statusClass} text-light">
+                                    <div><strong>Step ID:</strong> ${stepId}</div>
+                                    <div><strong>Status:</strong> ${result.status}</div>
+                                    <div><strong>Execution Time:</strong> ${result.execution_time}s</div>
+                                </li>
+                            `;
+                        }
+                        resultsHtml += '</ul>';
+                        stepResultsDiv.innerHTML = resultsHtml;
+                        
+                        // Continue polling if any step is still running
+                        const hasRunningSteps = Object.values(data.results).some(result => result.status === 'RUNNING');
+                        if (hasRunningSteps) {
+                            setTimeout(pollStepResults, 5000);
+                        }
+                    } else {
+                        console.error('Error polling step results:', data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            }
+            
+            // Update status
+            function updateStatus() {
+                // Update integration status
+                fetch('/api/codegen/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let statusHtml = '<ul class="list-group">';
+                        for (const [key, value] of Object.entries(data)) {
+                            if (key !== 'success') {
+                                let statusClass = value ? 'bg-success' : 'bg-danger';
+                                statusHtml += `
+                                    <li class="list-group-item ${statusClass} text-light">
+                                        <strong>${key}:</strong> ${value}
+                                    </li>
+                                `;
                             }
                         }
+                        statusHtml += '</ul>';
+                        integrationStatusDiv.innerHTML = statusHtml;
+                    } else {
+                        integrationStatusDiv.innerHTML = '<div class="status-badge status-error">Error: Could not get integration status</div>';
                     }
-                } catch (error) {
-                    console.error('Error polling for status:', error);
+                })
+                .catch(error => {
+                    integrationStatusDiv.innerHTML = '<div class="status-badge status-error">Error: Could not connect to the server</div>';
+                    console.error('Error:', error);
+                });
+                
+                // Update weaver status
+                fetch('/api/weaver/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let statusHtml = '<ul class="list-group">';
+                        for (const [key, value] of Object.entries(data.status)) {
+                            let statusClass = value ? 'bg-success' : 'bg-danger';
+                            statusHtml += `
+                                <li class="list-group-item ${statusClass} text-light">
+                                    <strong>${key}:</strong> ${value}
+                                </li>
+                            `;
+                        }
+                        statusHtml += '</ul>';
+                        weaverStatusDiv.innerHTML = statusHtml;
+                    } else {
+                        weaverStatusDiv.innerHTML = '<div class="status-badge status-error">Error: Could not get weaver status</div>';
+                    }
+                })
+                .catch(error => {
+                    weaverStatusDiv.innerHTML = '<div class="status-badge status-error">Error: Could not connect to the server</div>';
+                    console.error('Error:', error);
+                });
+            }
+            
+            // Load saved data
+            function loadSavedData() {
+                // Load project info from local storage
+                const savedProjectName = localStorage.getItem('projectName');
+                const savedProjectDescription = localStorage.getItem('projectDescription');
+                
+                if (savedProjectName) {
+                    projectNameInput.value = savedProjectName;
                 }
-            }, 5000);
-        }
+                
+                if (savedProjectDescription) {
+                    projectDescriptionInput.value = savedProjectDescription;
+                }
+                
+                // Check if API is initialized
+                updateStatus();
+                loadRepositories();
+            }
+            
+            // Initialize
+            loadSavedData();
+        });
     </script>
 </body>
 </html>

@@ -106,11 +106,6 @@ class CodegenIntegration:
             # Initialize Codegen agent
             self.codegen_agent = Agent(org_id=codegen_org_id, token=codegen_token)
             
-            # Initialize new components with Codegen credentials
-            self.concurrent_execution_engine.initialize(codegen_org_id, codegen_token)
-            self.interface_generator.initialize(codegen_org_id, codegen_token)
-            self.query_generation_framework.initialize(codegen_org_id, codegen_token)
-            
         except Exception as e:
             self.logger.error(f"Error initializing Codegen integration: {str(e)}")
             return False

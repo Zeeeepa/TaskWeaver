@@ -16,6 +16,7 @@ from injector import inject
 from standalone_taskweaver.app.app import TaskWeaverApp
 from standalone_taskweaver.config.config_mgt import AppConfigSource
 from standalone_taskweaver.logging import TelemetryLogger
+from standalone_taskweaver.memory import Memory
 from standalone_taskweaver.codegen_agent.codegen_agent import CodegenAgent
 from standalone_taskweaver.codegen_agent.requirements_manager import RequirementsManager
 from standalone_taskweaver.codegen_agent.concurrent_context_manager import ConcurrentContextManager
@@ -41,17 +42,20 @@ class TaskWeaverUIEnhanced:
         self.config = config
         self.logger = logger
         
+        # Initialize memory
+        self.memory = Memory()
+        
         # Initialize components
         self.requirements_manager = RequirementsManager(app, config, logger)
-        self.context_manager = ConcurrentContextManager(app, config, logger)
-        self.execution_engine = ConcurrentExecutionEngine(app, config, logger)
+        self.context_manager = ConcurrentContextManager(app, config, logger, self.memory)
+        self.execution_engine = ConcurrentExecutionEngine(app, config, logger, self.memory)
         self.codegen_agent = CodegenAgent(
             app, 
             config, 
             logger, 
-            self.requirements_manager,
-            self.context_manager,
-            self.execution_engine
+            requirements_manager=self.requirements_manager,
+            context_manager=self.context_manager,
+            execution_engine=self.execution_engine,
         )
         
         # Chat history

@@ -20,6 +20,7 @@ from injector import inject
 from standalone_taskweaver.app.app import TaskWeaverApp
 from standalone_taskweaver.config.config_mgt import AppConfigSource
 from standalone_taskweaver.logging import TelemetryLogger
+from standalone_taskweaver.memory import Memory
 from standalone_taskweaver.codegen_agent.requirements_manager import AtomicTask
 
 # Import Codegen SDK
@@ -112,11 +113,13 @@ class ConcurrentExecutionEngine:
         app: TaskWeaverApp,
         config: AppConfigSource,
         logger: TelemetryLogger,
+        memory: Optional[Memory] = None,
         max_concurrency: int = 10,
     ) -> None:
         self.app = app
         self.config = config
         self.logger = logger
+        self.memory = memory
         self.max_concurrency = max_concurrency
         self.codegen_agent = None
         self.tasks = {}  # task_id -> TaskResult
@@ -489,4 +492,3 @@ class ErrorHandlingFramework:
                 retry_count += 1
                 
         return task_result
-

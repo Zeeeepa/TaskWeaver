@@ -21,6 +21,7 @@ from standalone_taskweaver.codegen_agent.concurrent_execution import ConcurrentE
 from standalone_taskweaver.codegen_agent.interface_generator import InterfaceGenerator
 from standalone_taskweaver.codegen_agent.concurrent_context_manager import ConcurrentContextManager
 from standalone_taskweaver.codegen_agent.query_generation import QueryGenerationFramework
+from standalone_taskweaver.memory import Memory
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -228,7 +229,8 @@ def create_mock_implementation(args):
 async def execute_tasks(args):
     """Execute multiple tasks concurrently"""
     requirements_manager = RequirementsManager(None, None, None)
-    concurrent_execution_engine = ConcurrentExecutionEngine(None, None, None)
+    memory = Memory()
+    concurrent_execution_engine = ConcurrentExecutionEngine(None, None, None, memory)
     
     if not args.org_id or not args.token:
         print("Error: Codegen organization ID and API token are required")
@@ -344,4 +346,3 @@ def main():
         
 if __name__ == "__main__":
     main()
-

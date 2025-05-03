@@ -8,6 +8,7 @@ import json
 import logging
 import threading
 import asyncio
+import datetime
 from typing import Dict, List, Optional, Any, Union, Tuple
 
 from injector import inject
@@ -69,6 +70,15 @@ class TaskWeaverUIEnhanced:
         # Initialize components
         self.requirements_manager.initialize()
         self.context_manager.initialize()
+    
+    def get_current_time_str(self) -> str:
+        """
+        Get the current time as a string
+        
+        Returns:
+            str: Current time in ISO format
+        """
+        return datetime.datetime.now().isoformat()
         
     def initialize_agent(self, codegen_token: str) -> bool:
         """
@@ -93,7 +103,7 @@ class TaskWeaverUIEnhanced:
         self.chat_history.append({
             "role": role,
             "content": content,
-            "timestamp": self.app.get_current_time_str()
+            "timestamp": self.get_current_time_str()
         })
         
         # If this is a user message, update requirements
@@ -267,4 +277,3 @@ class TaskWeaverUIEnhanced:
         """
         self.chat_history = []
         self.requirements_text = None
-
